@@ -1,0 +1,1 @@
+The storefront acts as the real-time Point of Sale (POS) data-collection channel. While traditional inventory systems require manual data entry, Smart Stock automatically captures sales at the transaction point, immediately updating inventory counts, running analytics, and checking stock threshold triggers at the database layer.
