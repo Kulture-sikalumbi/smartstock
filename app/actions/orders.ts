@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getServerSupabase, isSupabaseConfigured } from "@/lib/supabase/server";
+import { sendLowStockAlert } from "@/app/actions/notifications";
 import type { CartItem, PaymentMethod } from "@/lib/types";
 
 export interface CreateOrderInput {
@@ -109,6 +110,24 @@ export async function createOrder(
 
   if (completeError) {
     return { success: false, error: completeError.message };
+  }
+
+  // The DB trigger has now decremented stock — re-fetch the purchased
+  // products and fire a low-stock alert email for any that dropped
+  // below their threshold. Failures here must never fail the order.
+  const { data: updatedProducts } = await supabase
+    .from("products")
+    .select("name, stock_quantity, low_stock_threshold")
+    .in("id", productIds);
+
+  for (const product of updatedProducts ?? []) {
+    if (product.stock_quantity < product.low_stock_threshold) {
+      void sendLowStockAlert({
+        productName: product.name,
+        currentStock: product.stock_quantity,
+        threshold: product.low_stock_threshold,
+      });
+    }
   }
 
   revalidatePath("/");
