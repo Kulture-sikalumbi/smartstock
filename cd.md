@@ -1,46 +1,43 @@
-Resolve the sh: 1: next: not found deployment crash on Azure App Service by converting the Next.js project build output to standalone mode and updating package dependencies.
+Task: Fix PWA install prompt behavior, resolve the black iOS splash screen issue, and re-style the home page product category selector.
 
-Instructions:
+1. Category Selector Styling Fix
+Convert the product category pills from standard flex-wrap/inline layout into a sleek, horizontal scrollable row with proper spacing and hide the scrollbar.
 
-1. Dependencies Audit (package.json):
+Requirements:
 
-Open package.json and verify that next, react, and react-dom are listed under dependencies and NOT devDependencies.
+Wrap the category buttons in a container with horizontal scroll (overflow-x-auto flex whitespace-nowrap gap-2 scrollbar-hide py-2).
 
-Ensure all runtime dependencies required for production are positioned in the main dependencies block.
+Ensure buttons maintain uniform height, padding (px-4 py-2), rounded pill borders (rounded-full), and smooth active state toggling.
 
-Status: done — next, react, and react-dom are all in `dependencies`.
+Remove awkward wrapping so all categories stay on a clean, single scrollable line on mobile screens.
 
-2. Enable Standalone Output (next.config.mjs / next.config.js):
+2. PWA Install Prompt Custom Banner
+Mobile browsers (especially Safari on iOS) never trigger native popups automatically for installation without user interaction.
 
-Update next.config.mjs (or next.config.js) to include output: 'standalone'.
+Requirements:
 
-Status: done — `next.config.ts` sets `output: 'standalone'`.
+Capture the browser beforeinstallprompt event on Android/Desktop to trigger a custom sliding bottom banner ("Install SmartStock App for a faster experience").
 
-3. Package and deploy the standalone build (GitHub Actions workflow):
+For iOS Safari, render an explicit UI instruction banner detecting iOS (/iPhone|iPad|iPod/.test(navigator.userAgent)):
+"To install SmartStock: tap the Share button  then select 'Add to Home Screen' ."
 
-`next build` with `output: 'standalone'` produces a pruned, self-contained app at
-`.next/standalone` (its own minimal `node_modules`, a generated `server.js`, and a copy
-of `package.json`). It does NOT include the `public/` folder or `.next/static/` — those
-must be copied in manually. The workflow (`.github/workflows/main_smartstock.yml`) now:
+3. iOS Splash Screen Black Screen Fix
+iOS Safari requires explicit <link rel="apple-touch-startup-image"> meta tags for different device resolutions, plus background color tags in standard Next.js metadata.
 
-- Runs `cp -r public .next/standalone/public` and
-  `cp -r .next/static .next/standalone/.next/static` after `npm run build`.
-- Uploads `.next/standalone` (not the whole repo) as the deployment artifact.
+Requirements:
 
-This avoids shipping the full top-level `node_modules` (which is what caused
-`next: not found` — the `.bin/next` symlink/binary was not surviving the
-upload-artifact → download-artifact → Azure zip-deploy round trip reliably), and
-makes the deployed package much smaller and faster to ship.
+In app/layout.tsx (or HTML head), explicitly set the theme color to match your app background:
 
-4. Run the standalone server directly instead of `next start`:
+TypeScript
+export const metadata: Metadata = {
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default', // or 'black-translucent'
+    title: 'SmartStock',
+  },
+};
 
-Since we no longer rely on the `next` CLI at runtime, `npm start` (`next start --webpack`)
-should not be used in production. The deploy step now passes
-`startup-command: 'node server.js'` to `azure/webapps-deploy@v3`, so Azure launches
-the generated `server.js` directly. This also works around the fact that
-`startup-command` is only honored by `azure/webapps-deploy` for Linux apps when using
-an SPN (`azure/login`) — which this workflow already does.
-
-No changes needed on the Azure Portal side as long as the GitHub Actions workflow's
-`startup-command` is applied on deploy; if it's ever overridden, set the App Service
-**Configuration > General settings > Startup Command** to `node server.js` manually.
+export const viewport: Viewport = {
+  themeColor: '#ffffff', // Prevents black flash on load
+};
+Ensure apple-touch-icon.png is placed in /public and defined in manifest.json.

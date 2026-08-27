@@ -8,8 +8,13 @@ const sharp = require("sharp");
 
 const svgPath = path.join(__dirname, "icon-source.svg");
 const outDir = path.join(__dirname, "..", "public", "icons");
+const publicDir = path.join(__dirname, "..", "public");
 
 const sizes = [192, 512];
+
+// iOS uses this exact file/size (no maskable padding assumptions) for the
+// home screen icon via <link rel="apple-touch-icon">.
+const APPLE_TOUCH_ICON_SIZE = 180;
 
 async function main() {
   fs.mkdirSync(outDir, { recursive: true });
@@ -23,6 +28,16 @@ async function main() {
       .toFile(outPath);
     console.log(`Generated ${outPath}`);
   }
+
+  const appleTouchIconPath = path.join(publicDir, "apple-touch-icon.png");
+  await sharp(svgBuffer, {
+    density: (72 * APPLE_TOUCH_ICON_SIZE) / 512,
+  })
+    .resize(APPLE_TOUCH_ICON_SIZE, APPLE_TOUCH_ICON_SIZE)
+    .flatten({ background: "#ffffff" })
+    .png({ compressionLevel: 9 })
+    .toFile(appleTouchIconPath);
+  console.log(`Generated ${appleTouchIconPath}`);
 }
 
 main().catch((err) => {

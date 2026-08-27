@@ -23,13 +23,13 @@ export function CategoryFilter({ categories }: CategoryFilterProps) {
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="scrollbar-hide flex gap-2 overflow-x-auto whitespace-nowrap py-2">
       {["All", ...categories].map((category) => (
         <button
           key={category}
           onClick={() => selectCategory(category)}
           className={cn(
-            "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
+            "shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors",
             activeCategory === category
               ? "border-zinc-900 bg-zinc-900 text-white"
               : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900"
