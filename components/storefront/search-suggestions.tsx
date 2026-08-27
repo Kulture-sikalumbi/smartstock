@@ -27,7 +27,7 @@ export function SearchSuggestions({
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const debounceTimer = useRef<NodeJS.Timeout>();
+  const debounceTimer = useRef<NodeJS.Timeout | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -52,7 +52,7 @@ export function SearchSuggestions({
     setHighlightedIndex(-1);
 
     // Clear previous timer
-    if (debounceTimer.current) {
+    if (debounceTimer.current !== undefined) {
       clearTimeout(debounceTimer.current);
     }
 
