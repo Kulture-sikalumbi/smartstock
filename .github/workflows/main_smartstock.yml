@@ -33,8 +33,10 @@ jobs:
         run: |
           cp -r public .next/standalone/public
           mkdir -p .next/standalone/.next
+          # Copy all build metadata (BUILD_ID, manifests, server chunks)
+          cp -r .next/* .next/standalone/.next/ 2>/dev/null || true
+          # Re-ensure static files are placed properly
           cp -r .next/static .next/standalone/.next/static
-          cp .next/BUILD_ID .next/standalone/.next/BUILD_ID
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
