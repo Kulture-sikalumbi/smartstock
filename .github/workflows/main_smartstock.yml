@@ -29,11 +29,12 @@ jobs:
           npm run build --if-present
           npm run test --if-present
 
-      - name: Assemble standalone deployment package
+      - name: Assemble standalone package
         run: |
           cp -r public .next/standalone/public
+          mkdir -p .next/standalone/.next
           cp -r .next/static .next/standalone/.next/static
-
+          cp .next/BUILD_ID .next/standalone/.next/BUILD_ID
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
