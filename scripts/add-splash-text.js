@@ -11,7 +11,7 @@ const { createCanvas, loadImage } = require('canvas');
 
 const SPLASH_DIR = path.join(__dirname, '../public/splash');
 const TEXT = 'SmartStock';
-const TEXT_COLOR = '#1f2937'; // Dark gray matching brand
+const TEXT_COLOR = '#000000'; // Pure black for maximum visibility
 
 async function addTextToImage(imagePath) {
   try {
@@ -35,17 +35,17 @@ async function addTextToImage(imagePath) {
     ctx.drawImage(image, 0, 0);
 
     // Scale font size proportionally to image height
-    // For typical iPhone splash (2436px), this gives ~100px font
-    const fontSize = Math.round(h / 24.36);
+    // For typical iPhone splash (2436px), this gives ~165px font
+    const fontSize = Math.round(h / 14.76);
 
     // Set up text properties
     ctx.fillStyle = TEXT_COLOR;
-    ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Position text below the icon (around 65% down the screen)
-    const textY = Math.round(h * 0.65);
+    // Position text below the icon (around 70% down the screen)
+    const textY = Math.round(h * 0.70);
 
     // Draw text
     ctx.fillText(TEXT, w / 2, textY);
