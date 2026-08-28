@@ -11,6 +11,7 @@ interface SearchSuggestionsProps {
   products: Product[];
   onSearch?: (query: string) => void;
   onSelectProduct?: (product: Product) => void;
+  isNavigating?: boolean;
 }
 
 const MAX_SUGGESTIONS = 6;
@@ -20,6 +21,7 @@ export function SearchSuggestions({
   products,
   onSearch,
   onSelectProduct,
+  isNavigating,
 }: SearchSuggestionsProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -156,7 +158,7 @@ export function SearchSuggestions({
           className="pl-9"
           autoComplete="off"
         />
-        {isLoading && (
+        {(isLoading || isNavigating) && (
           <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-400" />
         )}
       </form>

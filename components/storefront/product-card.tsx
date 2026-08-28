@@ -23,8 +23,12 @@ export function ProductCard({ product }: { product: Product }) {
   const showPlaceholder = !product.image_url || imageFailed;
 
   return (
-    <Card className="group flex flex-col overflow-hidden transition-shadow hover:shadow-md">
-      <Link href={`/product/${product.id}`} className="relative block aspect-square bg-zinc-100">
+    <Card className="group flex flex-col overflow-hidden transition-[box-shadow,transform] hover:shadow-md active:scale-[0.98] active:shadow-sm">
+      <Link
+        href={`/product/${product.id}`}
+        prefetch={true}
+        className="relative block aspect-square bg-zinc-100"
+      >
         {showPlaceholder ? (
           <Image
             src={PLACEHOLDER_IMAGE}
@@ -59,6 +63,7 @@ export function ProductCard({ product }: { product: Product }) {
         </span>
         <Link
           href={`/product/${product.id}`}
+          prefetch={true}
           className="line-clamp-2 font-medium text-zinc-900 hover:underline"
         >
           {product.name}
@@ -70,6 +75,7 @@ export function ProductCard({ product }: { product: Product }) {
           <Button
             size="icon"
             variant="secondary"
+            className="active:scale-90 transition-transform"
             disabled={isOutOfStock || isLowStock}
             onClick={() => {
               if (isOutOfStock || isLowStock) {

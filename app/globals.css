@@ -4,6 +4,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -13,12 +14,11 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* Intentionally no `prefers-color-scheme: dark` override: the app UI is
+   light-themed only (no `dark:` variants anywhere), and the manifest/iOS
+   splash screens are baked with a white (#ffffff) background. Letting the
+   background flip to near-black here caused a black flash/PWA splash on
+   iOS devices with system Dark Mode enabled. */
 
 body {
   background: var(--background);

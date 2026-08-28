@@ -1,6 +1,5 @@
 import { SiteHeader } from "@/components/storefront/site-header";
-import { CategoryFilter } from "@/components/storefront/category-filter";
-import { ProductGrid } from "@/components/storefront/product-grid";
+import { ProductBrowser } from "@/components/storefront/product-browser";
 import { getProducts, getCategories } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 
@@ -38,9 +37,7 @@ export default async function Home({ searchParams }: HomeProps) {
           </p>
         </div>
 
-        <CategoryFilter categories={categories} />
-
-        <ProductGrid products={products} />
+        <ProductBrowser products={products} categories={categories} />
       </main>
     </div>
   );

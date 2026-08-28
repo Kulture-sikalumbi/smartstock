@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { ShoppingCart, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/store/cart-store";
@@ -19,6 +19,7 @@ export function SiteHeader() {
   const [lastLogoTapTime, setLastLogoTapTime] = useState(0);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [isSearchPending, startSearchTransition] = useTransition();
 
   // Load all products for suggestions on component mount
   useEffect(() => {
@@ -40,11 +41,15 @@ export function SiteHeader() {
   }, []);
 
   function handleSearch(query: string) {
-    router.push(`/?search=${encodeURIComponent(query)}`);
+    startSearchTransition(() => {
+      router.push(`/?search=${encodeURIComponent(query)}`, { scroll: false });
+    });
   }
 
   function handleSelectProduct(product: Product) {
-    router.push(`/?search=${encodeURIComponent(product.name)}`);
+    startSearchTransition(() => {
+      router.push(`/?search=${encodeURIComponent(product.name)}`, { scroll: false });
+    });
   }
 
   function handleLogoClick(e: React.MouseEvent<HTMLAnchorElement>) {
@@ -80,6 +85,7 @@ export function SiteHeader() {
               products={products}
               onSearch={handleSearch}
               onSelectProduct={handleSelectProduct}
+              isNavigating={isSearchPending}
             />
           )}
 
