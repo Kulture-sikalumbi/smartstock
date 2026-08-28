@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const ADMIN_PIN = "admin123";
+const ADMIN_PIN = "1234";
 const STORAGE_KEY = "smartstock-admin-unlocked";
 
 type Listener = () => void;
@@ -53,7 +53,7 @@ export function AdminPinGate({ children }: { children: ReactNode }) {
 
   if (!unlocked) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4">
+      <div className="fixed inset-0 flex items-center justify-center bg-zinc-50 px-4 py-4 overflow-y-auto">
         <form
           onSubmit={handleSubmit}
           className="flex w-full max-w-sm flex-col gap-5 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm"
@@ -71,15 +71,17 @@ export function AdminPinGate({ children }: { children: ReactNode }) {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="admin-pin">PIN</Label>
+            <Label htmlFor="admin-pin">PIN (4 digits)</Label>
             <Input
               id="admin-pin"
-              type="password"
+              type="text"
               inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={4}
               autoFocus
               autoComplete="off"
               value={pin}
-              onChange={(e) => setPin(e.target.value)}
+              onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ""))}
               placeholder="Enter PIN"
             />
             {error && <p className="text-sm text-red-600">{error}</p>}
