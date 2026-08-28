@@ -1,43 +1,43 @@
-Task: Fix PWA install prompt behavior, resolve the black iOS splash screen issue, and re-style the home page product category selector.
+Here is the clean, focused master prompt to update the static iOS splash images with the **SmartStock** label centered near the bottom.
 
-1. Category Selector Styling Fix
-Convert the product category pills from standard flex-wrap/inline layout into a sleek, horizontal scrollable row with proper spacing and hide the scrollbar.
+---
 
-Requirements:
+### Master Prompt for Your AI Agent
 
-Wrap the category buttons in a container with horizontal scroll (overflow-x-auto flex whitespace-nowrap gap-2 scrollbar-hide py-2).
+> **Task:** Update iOS PWA splash screens to include the centered "SmartStock" brand label near the bottom of the launch image (matching the native Android PWA launch style).
+> ---
+> 
+> 
+> ### Root Cause & Objective
+> 
+> 
+> iOS Safari does not dynamically render text onto PWA launch screens from `manifest.json`. The app name must be drawn directly into the static Apple startup images stored in `public/splash/`.
+> ---
+> 
+> 
+> ### Requirements
+> 
+> 
+> **Option A: CLI Asset Generator (Automated)**
+> Run `pwa-asset-generator` using your source logo to regenerate the iOS portrait splash screens with a white background and proper logo placement:
+> ```bash
+> npx pwa-asset-generator public/apple-touch-icon.png public/splash \
+>   -b "#ffffff" \
+>   --splash-only \
+>   --portrait-only \
+>   -p "calc(50vh - 100px) calc(50vw - 40px)"
+> 
+> ```
+> 
+> 
+> *(Adjust background hex `-b` to match your exact brand background color).*
+> **Option B: Manual Image Edit / SVG Canvas**
+> If updating the splash screen assets directly:
+> 1. Edit the iOS startup images in `public/splash/` (specifically `apple-splash-1125-2436.png` for iPhone X / XS).
+> 2. Keep the app logo centered in the upper/middle viewport.
+> 3. Add the text **"SmartStock"** centered horizontally near the bottom of the canvas (styled with a clean sans-serif font, medium weight, matching your brand typography color).
+> 
+> 
 
-Ensure buttons maintain uniform height, padding (px-4 py-2), rounded pill borders (rounded-full), and smooth active state toggling.
+---
 
-Remove awkward wrapping so all categories stay on a clean, single scrollable line on mobile screens.
-
-2. PWA Install Prompt Custom Banner
-Mobile browsers (especially Safari on iOS) never trigger native popups automatically for installation without user interaction.
-
-Requirements:
-
-Capture the browser beforeinstallprompt event on Android/Desktop to trigger a custom sliding bottom banner ("Install SmartStock App for a faster experience").
-
-For iOS Safari, render an explicit UI instruction banner detecting iOS (/iPhone|iPad|iPod/.test(navigator.userAgent)):
-"To install SmartStock: tap the Share button  then select 'Add to Home Screen' ."
-
-3. iOS Splash Screen Black Screen Fix
-iOS Safari requires explicit <link rel="apple-touch-startup-image"> meta tags for different device resolutions, plus background color tags in standard Next.js metadata.
-
-Requirements:
-
-In app/layout.tsx (or HTML head), explicitly set the theme color to match your app background:
-
-TypeScript
-export const metadata: Metadata = {
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default', // or 'black-translucent'
-    title: 'SmartStock',
-  },
-};
-
-export const viewport: Viewport = {
-  themeColor: '#ffffff', // Prevents black flash on load
-};
-Ensure apple-touch-icon.png is placed in /public and defined in manifest.json.

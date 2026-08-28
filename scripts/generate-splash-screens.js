@@ -40,6 +40,28 @@ const SPLASH_SCREENS = [
   { width: 2388, height: 1668, dpr: 2, deviceWidth: 834, deviceHeight: 1194, orientation: "landscape" },
   { width: 2048, height: 2732, dpr: 2, deviceWidth: 1024, deviceHeight: 1366, orientation: "portrait" },
   { width: 2732, height: 2048, dpr: 2, deviceWidth: 1024, deviceHeight: 1366, orientation: "landscape" },
+
+  // iPhone 12 mini / 13 mini
+  { width: 1080, height: 2340, dpr: 3, deviceWidth: 360, deviceHeight: 780, orientation: "portrait" },
+  { width: 2340, height: 1080, dpr: 3, deviceWidth: 360, deviceHeight: 780, orientation: "landscape" },
+  // iPhone 12 / 12 Pro / 13 / 13 Pro / 14
+  { width: 1170, height: 2532, dpr: 3, deviceWidth: 390, deviceHeight: 844, orientation: "portrait" },
+  { width: 2532, height: 1170, dpr: 3, deviceWidth: 390, deviceHeight: 844, orientation: "landscape" },
+  // iPhone 14 Pro / 15 / 15 Pro / 16
+  { width: 1179, height: 2556, dpr: 3, deviceWidth: 393, deviceHeight: 852, orientation: "portrait" },
+  { width: 2556, height: 1179, dpr: 3, deviceWidth: 393, deviceHeight: 852, orientation: "landscape" },
+  // iPhone 16 Pro
+  { width: 1206, height: 2622, dpr: 3, deviceWidth: 402, deviceHeight: 874, orientation: "portrait" },
+  { width: 2622, height: 1206, dpr: 3, deviceWidth: 402, deviceHeight: 874, orientation: "landscape" },
+  // iPhone 12 Pro Max / 13 Pro Max / 14 Plus / 15 Plus / 15 Pro Max
+  { width: 1284, height: 2778, dpr: 3, deviceWidth: 428, deviceHeight: 926, orientation: "portrait" },
+  { width: 2778, height: 1284, dpr: 3, deviceWidth: 428, deviceHeight: 926, orientation: "landscape" },
+  // iPhone 14 Pro Max / 16 Plus
+  { width: 1290, height: 2796, dpr: 3, deviceWidth: 430, deviceHeight: 932, orientation: "portrait" },
+  { width: 2796, height: 1290, dpr: 3, deviceWidth: 430, deviceHeight: 932, orientation: "landscape" },
+  // iPhone 16 Pro Max
+  { width: 1320, height: 2868, dpr: 3, deviceWidth: 440, deviceHeight: 956, orientation: "portrait" },
+  { width: 2868, height: 1320, dpr: 3, deviceWidth: 440, deviceHeight: 956, orientation: "landscape" },
 ];
 
 async function main() {
