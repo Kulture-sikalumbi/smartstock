@@ -56,8 +56,8 @@ export function SiteHeader() {
     const now = Date.now();
     const timeDiff = now - lastLogoTapTime;
 
-    // Double-tap threshold: 300ms between taps
-    if (timeDiff < 300 && timeDiff > 0) {
+    // Double-tap threshold: 500ms between taps (more forgiving on mobile)
+    if (timeDiff < 500 && timeDiff > 0) {
       e.preventDefault();
       setAdminModalOpen(true);
       setLastLogoTapTime(0);
@@ -73,8 +73,8 @@ export function SiteHeader() {
           <Link
             href="/"
             onClick={handleLogoClick}
-            className="flex items-center gap-2 font-semibold text-zinc-900 hover:opacity-80 transition-opacity"
-            aria-label="SmartStock Home"
+            className="flex items-center gap-2 font-semibold text-zinc-900 hover:opacity-80 transition-opacity active:opacity-60"
+            aria-label="SmartStock Home (double-tap for admin)"
           >
             <Store className="h-6 w-6" />
             <span className="hidden sm:inline">Smart Stock</span>

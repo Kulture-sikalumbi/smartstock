@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const ADMIN_PIN = "admin123";
+const ADMIN_PIN = "1234";
 const STORAGE_KEY = "smartstock-admin-unlocked";
 
 interface AdminLoginModalProps {
@@ -29,27 +29,19 @@ export function AdminLoginModal({
   const router = useRouter();
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setIsSubmitting(true);
-    setError("");
-
-    // Simulate a brief delay for better UX
-    setTimeout(() => {
-      if (pin === ADMIN_PIN) {
-        window.sessionStorage.setItem(STORAGE_KEY, "true");
-        setPin("");
-        setIsSubmitting(false);
-        onOpenChange(false);
-        router.push("/admin");
-      } else {
-        setError("Incorrect PIN. Please try again.");
-        setPin("");
-        setIsSubmitting(false);
-      }
-    }, 300);
+    if (pin === ADMIN_PIN) {
+      window.sessionStorage.setItem(STORAGE_KEY, "true");
+      setPin("");
+      setError("");
+      onOpenChange(false);
+      router.push("/admin");
+    } else {
+      setError("Incorrect PIN. Please try again.");
+      setPin("");
+    }
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -78,20 +70,21 @@ export function AdminLoginModal({
             <Label htmlFor="admin-pin">PIN</Label>
             <Input
               id="admin-pin"
-              type="password"
+              type="text"
               inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={4}
               autoFocus
               autoComplete="off"
               value={pin}
-              onChange={(e) => setPin(e.target.value)}
+              onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ""))}
               placeholder="Enter PIN"
-              disabled={isSubmitting}
             />
             {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
 
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? "Unlocking..." : "Unlock"}
+          <Button type="submit" className="w-full">
+            Unlock
           </Button>
         </form>
       </DialogContent>
