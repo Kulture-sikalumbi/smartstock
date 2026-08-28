@@ -7,7 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { createCanvas, loadImage } = require('canvas');
+const { createCanvas, loadImage, registerFont } = require('canvas');
 
 const SPLASH_DIR = path.join(__dirname, '../public/splash');
 const TEXT = 'SmartStock';
@@ -34,27 +34,28 @@ async function addTextToImage(imagePath) {
     // Draw the existing image
     ctx.drawImage(image, 0, 0);
 
-    // Scale font size proportionally to image height
-    // For typical iPhone splash (2436px), this gives ~165px font
-    const fontSize = Math.round(h / 14.76);
+    // Calculate font size - aim for much larger text
+    // For typical iPhone splash (2436px), this gives ~220px font
+    const fontSize = Math.round(h / 11);
 
-    // Set up text properties
+    // Set up text properties with explicit bold font
     ctx.fillStyle = TEXT_COLOR;
-    ctx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.font = `bold ${fontSize}px Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Position text below the icon (around 70% down the screen)
-    const textY = Math.round(h * 0.70);
+    // Position text directly below icon (around 58% down the screen)
+    const textY = Math.round(h * 0.58);
 
-    // Draw text
+    // Draw text with high quality
+    ctx.antialias = 'grey';
     ctx.fillText(TEXT, w / 2, textY);
 
     // Save the result
     const buffer = canvas.toBuffer('image/png');
     fs.writeFileSync(imagePath, buffer);
 
-    console.log(`✓ Updated ${filename}`);
+    console.log(`✓ Updated ${filename} (${w}x${h}, fontSize: ${fontSize}px)`);
   } catch (error) {
     console.error(`✗ Failed to update ${path.basename(imagePath)}:`, error.message);
   }
