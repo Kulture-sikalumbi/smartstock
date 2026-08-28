@@ -7,11 +7,16 @@
 
 const fs = require('fs');
 const path = require('path');
-const { createCanvas, loadImage, registerFont } = require('canvas');
+const { createCanvas, loadImage } = require('canvas');
 
 const SPLASH_DIR = path.join(__dirname, '../public/splash');
 const TEXT = 'SmartStock';
-const TEXT_COLOR = '#000000'; // Pure black for maximum visibility
+const TEXT_COLOR = '#374151'; // Charcoal grey, matches the app icon label
+
+// Must match the icon sizing ratio used in generate-splash-screens.js so the
+// text lines up with the icon that's already been composited onto the image.
+const ICON_SIZE_RATIO = 0.32;
+const MAX_TEXT_WIDTH_RATIO = 0.7; // text should never exceed 70% of the screen width
 
 async function addTextToImage(imagePath) {
   try {
@@ -34,22 +39,31 @@ async function addTextToImage(imagePath) {
     // Draw the existing image
     ctx.drawImage(image, 0, 0);
 
-    // Calculate font size - aim for much larger text
-    // For typical iPhone splash (2436px), this gives ~220px font
-    const fontSize = Math.round(h / 11);
+    // Figure out where the icon actually sits so the label can be placed
+    // just below it, regardless of aspect ratio (phones vs. tablets).
+    const iconSize = Math.round(Math.min(w, h) * ICON_SIZE_RATIO);
+    const iconBottom = h / 2 + iconSize / 2;
+    const gap = Math.round(iconSize * 0.09);
 
-    // Set up text properties with explicit bold font
+    // Start from a size proportional to the icon, then shrink to fit if the
+    // word would otherwise run wider than MAX_TEXT_WIDTH_RATIO of the screen.
+    let fontSize = Math.round(iconSize * 0.18);
     ctx.fillStyle = TEXT_COLOR;
-    ctx.font = `bold ${fontSize}px Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Position text directly below icon (around 58% down the screen)
-    const textY = Math.round(h * 0.58);
+    ctx.font = `600 ${fontSize}px Arial, sans-serif`;
+    const maxWidth = w * MAX_TEXT_WIDTH_RATIO;
+    const measuredWidth = ctx.measureText(TEXT).width;
+    if (measuredWidth > maxWidth) {
+      fontSize = Math.round(fontSize * (maxWidth / measuredWidth));
+      ctx.font = `600 ${fontSize}px Arial, sans-serif`;
+    }
 
-    // Draw text with high quality
-    ctx.antialias = 'grey';
-    ctx.fillText(TEXT, w / 2, textY);
+    // Center the text vertically just below the icon, with a small gap.
+    const textCenterY = Math.round(iconBottom + gap + fontSize * 0.5);
+
+    ctx.fillText(TEXT, w / 2, textCenterY);
 
     // Save the result
     const buffer = canvas.toBuffer('image/png');
