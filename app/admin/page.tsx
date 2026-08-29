@@ -15,7 +15,7 @@ import {
   getCompletedOrdersForAdmin,
 } from "@/lib/admin-data";
 import { formatCurrency } from "@/lib/utils";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
 
 export default async function AdminPage() {
   const [stats, ranking, lowStockProducts, products, orders] =
