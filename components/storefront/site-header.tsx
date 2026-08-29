@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { ShoppingCart, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/store/cart-store";
@@ -16,7 +16,6 @@ export function SiteHeader() {
   const openCart = useCartStore((state) => state.openCart);
 
   const [adminModalOpen, setAdminModalOpen] = useState(false);
-  const [lastLogoTapTime, setLastLogoTapTime] = useState(0);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [isSearchPending, startSearchTransition] = useTransition();
@@ -52,17 +51,55 @@ export function SiteHeader() {
     });
   }
 
-  function handleLogoClick(e: React.MouseEvent<HTMLAnchorElement>) {
-    const now = Date.now();
-    const timeDiff = now - lastLogoTapTime;
+  // Admin access gesture: long-press on touch devices, double-click on
+  // desktop. Double-tap-to-detect via manual timestamps was unreliable on
+  // mobile (touch "click" events are delayed/coalesced by the browser, and
+  // rapid taps can be intercepted as a zoom gesture), so touch input uses a
+  // deliberate press-and-hold instead. Desktop keeps a click gesture, using
+  // `MouseEvent.detail` for a native, browser-timed double-click count.
+  const LONG_PRESS_MS = 550;
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
 
-    // Double-tap threshold: 500ms between taps (more forgiving on mobile)
-    if (timeDiff < 500 && timeDiff > 0) {
+  function clearLongPressTimer() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }
+
+  function handleLogoPointerDown(e: React.PointerEvent<HTMLAnchorElement>) {
+    if (e.pointerType !== "touch") return;
+    longPressTriggered.current = false;
+    clearLongPressTimer();
+    longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true;
+      setAdminModalOpen(true);
+    }, LONG_PRESS_MS);
+  }
+
+  function handleLogoPointerUp(e: React.PointerEvent<HTMLAnchorElement>) {
+    if (e.pointerType !== "touch") return;
+    clearLongPressTimer();
+  }
+
+  function handleLogoPointerCancel(e: React.PointerEvent<HTMLAnchorElement>) {
+    if (e.pointerType !== "touch") return;
+    clearLongPressTimer();
+  }
+
+  function handleLogoClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    // A long-press already opened the admin modal for this interaction --
+    // swallow the trailing click so it doesn't also navigate home.
+    if (longPressTriggered.current) {
+      e.preventDefault();
+      longPressTriggered.current = false;
+      return;
+    }
+    // Desktop double-click (native click count, not a touch tap).
+    if (e.detail >= 2) {
       e.preventDefault();
       setAdminModalOpen(true);
-      setLastLogoTapTime(0);
-    } else {
-      setLastLogoTapTime(now);
     }
   }
 
@@ -73,8 +110,13 @@ export function SiteHeader() {
           <Link
             href="/"
             onClick={handleLogoClick}
-            className="flex items-center gap-2 font-semibold text-zinc-900 hover:opacity-80 transition-opacity active:opacity-60"
-            aria-label="SmartStock Home (double-tap for admin)"
+            onPointerDown={handleLogoPointerDown}
+            onPointerUp={handleLogoPointerUp}
+            onPointerCancel={handleLogoPointerCancel}
+            onPointerLeave={handleLogoPointerCancel}
+            onContextMenu={(e) => e.preventDefault()}
+            className="flex select-none items-center gap-2 font-semibold text-zinc-900 [-webkit-touch-callout:none] hover:opacity-80 transition-opacity active:opacity-60"
+            aria-label="SmartStock Home (double-click or long-press for admin)"
           >
             <Store className="h-6 w-6" />
             <span className="hidden sm:inline">Smart Stock</span>

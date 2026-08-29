@@ -48,7 +48,8 @@ export default async function AdminPage() {
         {!isSupabaseConfigured && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             Connect Supabase to see live revenue, sales ranking, and enable
-            inventory editing. See{" "}
+            inventory editing. Set SUPABASE_URL, SUPABASE_ANON_KEY, and
+            SUPABASE_SERVICE_ROLE_KEY in your environment. See{" "}
             <code className="rounded bg-amber-100 px-1">sql/schema.sql</code>{" "}
             and <code className="rounded bg-amber-100 px-1">.env.local</code>.
           </div>

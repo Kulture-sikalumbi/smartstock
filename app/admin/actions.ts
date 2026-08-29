@@ -23,7 +23,7 @@ function guardConfigured(): ActionResult | null {
     return {
       success: false,
       error:
-        "Supabase isn't configured. Add NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to .env.local.",
+        "Supabase isn't configured. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to .env.local.",
     };
   }
   return null;

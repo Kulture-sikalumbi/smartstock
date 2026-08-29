@@ -41,7 +41,7 @@ export async function createOrder(
     return {
       success: false,
       error:
-        "Supabase isn't configured yet. Add NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to .env.local (see sql/schema.sql).",
+        "Supabase isn't configured yet. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to .env.local (see sql/schema.sql).",
     };
   }
 
