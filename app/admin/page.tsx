@@ -17,6 +17,14 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 
+// Force this page to render on every request instead of being statically
+// prerendered at build time. Without this, Next.js prerenders /admin once
+// during `next build` (in CI, where Supabase env vars aren't set) and bakes
+// that result -- including the "Connect Supabase" banner and empty data --
+// into a static snapshot served for every request, regardless of what env
+// vars are actually configured on the running server.
+export const dynamic = "force-dynamic";
+
 export default async function AdminPage() {
   const [stats, ranking, lowStockProducts, products, orders] =
     await Promise.all([

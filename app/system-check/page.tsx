@@ -7,6 +7,9 @@
 // this app is currently blocking /api/* paths with a 403. Delete this file
 // once you've confirmed your Azure App Service configuration is correct.
 
+// Force dynamic rendering -- see the comment in app/admin/page.tsx for why.
+export const dynamic = "force-dynamic";
+
 function describe(value: string | undefined) {
   if (!value) {
     return { set: false as const };
