@@ -8,6 +8,8 @@ import { AddToCartSection } from "@/components/storefront/add-to-cart-section";
 import { getProductById } from "@/lib/data";
 import { formatCurrency } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 interface ProductPageProps {
   params: Promise<{ id: string }>;
 }
@@ -68,6 +70,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
             {!isOutOfStock && !isLowStock && (
               <Badge variant="success">In stock</Badge>
             )}
+            <span className="text-sm text-zinc-500">
+              {product.stock_quantity} available
+            </span>
           </div>
 
           <p className="text-3xl font-bold text-zinc-900">

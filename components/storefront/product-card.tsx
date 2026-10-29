@@ -61,6 +61,11 @@ export function ProductCard({ product }: { product: Product }) {
         <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
           {product.category}
         </span>
+        <span className={`text-xs ${isOutOfStock ? "text-red-600" : isLowStock ? "text-amber-700" : "text-zinc-500"}`}>
+          {isOutOfStock
+            ? "0 in stock"
+            : `${product.stock_quantity} in stock${isLowStock ? " · low stock" : ""}`}
+        </span>
         <Link
           href={`/product/${product.id}`}
           prefetch={true}
@@ -76,9 +81,9 @@ export function ProductCard({ product }: { product: Product }) {
             size="icon"
             variant="secondary"
             className="active:scale-90 transition-transform"
-            disabled={isOutOfStock || isLowStock}
+            disabled={isOutOfStock}
             onClick={() => {
-              if (isOutOfStock || isLowStock) {
+              if (isOutOfStock) {
                 toast.error("This product is out of stock and cannot be added to cart.");
                 return;
               }

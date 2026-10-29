@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ChevronLeft,
@@ -12,6 +13,7 @@ import {
   Search,
   X,
   Download,
+  RefreshCw,
 } from "lucide-react";
 import {
   Table,
@@ -31,12 +33,32 @@ import type { Product } from "@/lib/types";
 
 const ITEMS_PER_PAGE = 8;
 
-export function InventoryTable({ products }: { products: Product[] }) {
+export function InventoryTable({
+  products,
+  loadError,
+}: {
+  products: Product[];
+  loadError?: string;
+}) {
+  const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [pendingStock, setPendingStock] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") router.refresh();
+    };
+
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [router]);
 
   // Filter products based on search query
   const filteredProducts = useMemo(() => {
@@ -85,6 +107,7 @@ export function InventoryTable({ products }: { products: Product[] }) {
     const result = await updateStockQuantity(product.id, newValue);
     if (result.success) {
       clearPendingStock(product.id);
+      router.refresh();
       toast.success(`Updated stock for ${product.name}`);
     } else {
       toast.error(result.error ?? "Failed to update stock");
@@ -110,6 +133,7 @@ export function InventoryTable({ products }: { products: Product[] }) {
     const result = await updateStockQuantity(product.id, newValue);
     if (result.success) {
       clearPendingStock(product.id);
+      router.refresh();
       toast.success(
         `Stock ${delta > 0 ? "increased" : "decreased"} for ${product.name}`
       );
@@ -252,14 +276,17 @@ export function InventoryTable({ products }: { products: Product[] }) {
           <Plus className="h-3.5 w-3.5" />
         </Button>
         {currentStockValue !== product.stock_quantity && (
-          <Button
-            size="sm"
-            variant="secondary"
-            className="text-xs shrink-0"
-            onClick={() => handleStockSave(product)}
-          >
-            Save
-          </Button>
+          <>
+            <span className="text-xs text-amber-700">Unsaved</span>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="text-xs shrink-0"
+              onClick={() => handleStockSave(product)}
+            >
+              Save
+            </Button>
+          </>
         )}
       </div>
     );
@@ -267,9 +294,27 @@ export function InventoryTable({ products }: { products: Product[] }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {loadError && (
+        <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          Could not load current inventory from Supabase: {loadError}
+        </p>
+      )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-semibold text-zinc-900">Inventory</h2>
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-900">Inventory</h2>
+          <p className="text-xs text-zinc-500">
+            Stock is the current on-hand quantity in Supabase. The + and − buttons save immediately; typed changes need Save.
+          </p>
+        </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Button
+            onClick={() => router.refresh()}
+            variant="outline"
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh stock
+          </Button>
           <Button
             onClick={exportToCSV}
             variant="outline"
@@ -322,7 +367,8 @@ export function InventoryTable({ products }: { products: Product[] }) {
               <TableHead className="min-w-[150px]">Product</TableHead>
               <TableHead className="min-w-[100px]">Category</TableHead>
               <TableHead className="min-w-[80px]">Price</TableHead>
-              <TableHead className="min-w-[120px]">Stock</TableHead>
+              <TableHead className="min-w-[210px]">Current stock (units)</TableHead>
+              <TableHead className="min-w-[140px]">Low-stock alert at</TableHead>
               <TableHead className="min-w-[90px]">Status</TableHead>
               <TableHead className="text-right min-w-[80px]">Actions</TableHead>
             </TableRow>
@@ -341,7 +387,20 @@ export function InventoryTable({ products }: { products: Product[] }) {
                     {formatCurrency(product.price)}
                   </TableCell>
                   <TableCell>
-                    <StockAdjuster product={product} />
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-zinc-500">
+                        Saved in database: <strong className="text-zinc-900">{product.stock_quantity}</strong>
+                      </span>
+                      <StockAdjuster product={product} />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-medium text-zinc-900">
+                      {product.low_stock_threshold} units
+                    </span>
+                    <span className="block text-xs text-zinc-500">
+                      Alert at this amount or lower
+                    </span>
                   </TableCell>
                   <TableCell>
                     <StatusBadge product={product} />
@@ -373,10 +432,12 @@ export function InventoryTable({ products }: { products: Product[] }) {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="text-center py-8 text-zinc-500"
                 >
-                  {searchQuery
+                  {loadError
+                    ? "Inventory unavailable because Supabase could not be reached."
+                    : searchQuery
                     ? "No products found matching your search"
                     : "No products yet. Add one to get started!"}
                 </TableCell>
@@ -414,7 +475,12 @@ export function InventoryTable({ products }: { products: Product[] }) {
               </div>
 
               <div className="flex flex-col gap-2">
-                <span className="text-sm text-zinc-500">Stock</span>
+                <span className="text-sm font-medium text-zinc-900">
+                  Current stock: {product.stock_quantity} units
+                </span>
+                <span className="text-xs text-zinc-500">
+                  Low-stock alert at {product.low_stock_threshold} units or lower
+                </span>
                 <StockAdjuster product={product} />
               </div>
 
@@ -444,7 +510,9 @@ export function InventoryTable({ products }: { products: Product[] }) {
           ))
         ) : (
           <div className="rounded-xl border border-zinc-200 bg-white py-8 text-center text-zinc-500">
-            {searchQuery
+            {loadError
+              ? "Inventory unavailable because Supabase could not be reached."
+              : searchQuery
               ? "No products found matching your search"
               : "No products yet. Add one to get started!"}
           </div>

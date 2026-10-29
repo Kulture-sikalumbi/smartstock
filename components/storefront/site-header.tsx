@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { ShoppingCart, Store } from "lucide-react";
+import { LogOut, ShoppingCart, Store, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/store/cart-store";
 import { SearchSuggestions } from "./search-suggestions";
 import { AdminLoginModal } from "./admin-login-modal";
 import type { Product } from "@/lib/types";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
+import { getDemoCustomer, signOutDemoAccount, subscribeToDemoAuth } from "@/lib/demo-auth";
 
 export function SiteHeader() {
   const router = useRouter();
@@ -16,6 +18,7 @@ export function SiteHeader() {
   const openCart = useCartStore((state) => state.openCart);
 
   const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [customerEmail, setCustomerEmail] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [isSearchPending, startSearchTransition] = useTransition();
@@ -38,6 +41,36 @@ export function SiteHeader() {
 
     loadProducts();
   }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      const updateDemoCustomer = () => setCustomerEmail(getDemoCustomer()?.email ?? null);
+      updateDemoCustomer();
+      return subscribeToDemoAuth(updateDemoCustomer);
+    }
+
+    let mounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setCustomerEmail(data.session?.user.email ?? null);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCustomerEmail(session?.user.email ?? null);
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  async function handleSignOut() {
+    if (!isSupabaseConfigured) {
+      signOutDemoAccount();
+      return;
+    }
+    await supabase.auth.signOut();
+    router.refresh();
+  }
 
   function handleSearch(query: string) {
     startSearchTransition(() => {
@@ -145,6 +178,27 @@ export function SiteHeader() {
               </span>
             )}
           </Button>
+
+          {customerEmail ? (
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href="/account"
+                className="hidden max-w-36 truncate text-sm text-zinc-600 sm:block"
+              >
+                {customerEmail}
+              </Link>
+              <Button variant="outline" size="icon" onClick={handleSignOut} aria-label="Sign out">
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <Button asChild variant="outline" className="shrink-0 gap-2 px-3">
+              <Link href="/account">
+                <UserRound className="h-4 w-4" />
+                <span className="hidden sm:inline">Sign in</span>
+              </Link>
+            </Button>
+          )}
         </div>
       </header>
 

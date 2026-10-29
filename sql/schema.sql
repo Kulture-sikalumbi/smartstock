@@ -56,6 +56,15 @@ create table if not exists public.order_items (
 create index if not exists order_items_order_id_idx on public.order_items (order_id);
 create index if not exists order_items_product_id_idx on public.order_items (product_id);
 
+-- ----------------------------------------------------------------------------
+-- Admin notification recipients
+-- ----------------------------------------------------------------------------
+create table if not exists public.admin_notification_recipients (
+  id          uuid primary key default gen_random_uuid(),
+  email       text not null unique check (email = lower(btrim(email))),
+  created_at  timestamptz not null default now()
+);
+
 -- ============================================================================
 -- Trigger: decrement stock_quantity when an order becomes COMPLETED
 -- ============================================================================
@@ -120,6 +129,7 @@ create trigger trg_decrement_stock_on_insert_completed_order
 alter table public.products enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
+alter table public.admin_notification_recipients enable row level security;
 
 -- Public (anon) read access to the product catalogue.
 create policy "Public can view products"

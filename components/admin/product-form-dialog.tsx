@@ -342,9 +342,9 @@ function ProductForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="grid gap-2">
-          <Label htmlFor="stock_quantity">Stock quantity</Label>
+          <Label htmlFor="stock_quantity">Current stock (units on hand)</Label>
           <Input
             id="stock_quantity"
             type="text"
@@ -363,9 +363,12 @@ function ProductForm({
             }}
             placeholder="0"
           />
+          <p className="text-xs text-zinc-500">
+            How many units are available right now.
+          </p>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="low_stock_threshold">Low stock threshold</Label>
+          <Label htmlFor="low_stock_threshold">Low-stock alert threshold</Label>
           <Input
             id="low_stock_threshold"
             type="text"
@@ -384,6 +387,9 @@ function ProductForm({
             }}
             placeholder="5"
           />
+          <p className="text-xs text-zinc-500">
+            Email when current stock reaches this number or lower.
+          </p>
         </div>
       </div>
 

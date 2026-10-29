@@ -139,9 +139,14 @@ export async function getLowStockProducts(): Promise<Product[]> {
   );
 }
 
-export async function getAllProductsForAdmin(): Promise<Product[]> {
+export interface AdminInventoryResult {
+  products: Product[];
+  error?: string;
+}
+
+export async function getAllProductsForAdmin(): Promise<AdminInventoryResult> {
   if (!isSupabaseConfigured) {
-    return MOCK_PRODUCTS;
+    return { products: [], error: "Supabase is not configured for this server." };
   }
 
   const supabase = getServerSupabase();
@@ -152,10 +157,13 @@ export async function getAllProductsForAdmin(): Promise<Product[]> {
 
   if (error || !data) {
     console.error("getAllProductsForAdmin error:", error?.message);
-    return MOCK_PRODUCTS;
+    return {
+      products: [],
+      error: error?.message ?? "Supabase returned no inventory data.",
+    };
   }
 
-  return data as Product[];
+  return { products: data as Product[] };
 }
 
 export async function getCompletedOrdersForAdmin(): Promise<Order[]> {

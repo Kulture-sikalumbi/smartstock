@@ -11,8 +11,6 @@ export function AddToCartSection({ product }: { product: Product }) {
   const [quantity, setQuantity] = useState(1);
   const addItem = useCartStore((state) => state.addItem);
   const isOutOfStock = product.stock_quantity <= 0;
-  const isLowStock =
-    !isOutOfStock && product.stock_quantity <= product.low_stock_threshold;
 
   return (
     <div className="flex items-center gap-3 pt-2">
@@ -21,7 +19,7 @@ export function AddToCartSection({ product }: { product: Product }) {
           variant="ghost"
           size="icon"
           onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-          disabled={isOutOfStock || isLowStock}
+          disabled={isOutOfStock}
         >
           <Minus className="h-4 w-4" />
         </Button>
@@ -32,16 +30,16 @@ export function AddToCartSection({ product }: { product: Product }) {
           onClick={() =>
             setQuantity((q) => Math.min(product.stock_quantity, q + 1))
           }
-          disabled={isOutOfStock || isLowStock}
+          disabled={isOutOfStock}
         >
           <Plus className="h-4 w-4" />
         </Button>
       </div>
       <Button
         className="flex-1"
-        disabled={isOutOfStock || isLowStock}
+        disabled={isOutOfStock}
         onClick={() => {
-          if (isOutOfStock || isLowStock) {
+          if (isOutOfStock) {
             toast.error("This product is out of stock and cannot be added to cart.");
             return;
           }
@@ -49,7 +47,7 @@ export function AddToCartSection({ product }: { product: Product }) {
           setQuantity(1);
         }}
       >
-        {isOutOfStock || isLowStock ? "Out of stock" : "Add to cart"}
+        {isOutOfStock ? "Out of stock" : "Add to cart"}
       </Button>
     </div>
   );

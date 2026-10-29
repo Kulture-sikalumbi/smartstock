@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { getServerSupabase, isSupabaseConfigured } from "@/lib/supabase/server";
-import { sendLowStockAlert } from "@/app/actions/notifications";
+import {
+  notifyLowStockTransition,
+  sendNewOrderAlert,
+} from "@/app/actions/notifications";
 import type { CartItem, PaymentMethod } from "@/lib/types";
 
 export interface CreateOrderInput {
@@ -55,7 +58,7 @@ export async function createOrder(
   const productIds = items.map((item) => item.productId);
   const { data: currentProducts, error: stockCheckError } = await supabase
     .from("products")
-    .select("id, name, stock_quantity")
+    .select("id, name, stock_quantity, low_stock_threshold")
     .in("id", productIds);
 
   if (stockCheckError) {
@@ -112,23 +115,32 @@ export async function createOrder(
     return { success: false, error: completeError.message };
   }
 
-  // The DB trigger has now decremented stock — re-fetch the purchased
-  // products and fire a low-stock alert email for any that dropped
-  // below their threshold. Failures here must never fail the order.
+  // The DB trigger has now decremented stock — re-fetch purchased products
+  // and alert when stock first reaches or falls below its threshold.
   const { data: updatedProducts } = await supabase
     .from("products")
-    .select("name, stock_quantity, low_stock_threshold")
+    .select("id, name, stock_quantity, low_stock_threshold")
     .in("id", productIds);
 
   for (const product of updatedProducts ?? []) {
-    if (product.stock_quantity < product.low_stock_threshold) {
-      void sendLowStockAlert({
-        productName: product.name,
-        currentStock: product.stock_quantity,
-        threshold: product.low_stock_threshold,
-      });
-    }
+    const previous = currentProducts?.find((current) => current.id === product.id);
+    await notifyLowStockTransition({
+      productName: product.name,
+      previousStock: previous?.stock_quantity ?? null,
+      previousThreshold: previous?.low_stock_threshold ?? null,
+      currentStock: product.stock_quantity,
+      currentThreshold: product.low_stock_threshold,
+    });
   }
+
+  await sendNewOrderAlert({
+    orderId: order.id,
+    customerName: customerName.trim(),
+    customerPhone: customerPhone.trim(),
+    paymentMethod,
+    totalAmount,
+    items,
+  });
 
   revalidatePath("/");
   revalidatePath("/admin");

@@ -5,7 +5,9 @@ import { LowStockBanner } from "@/components/admin/low-stock-banner";
 import { SalesRanking } from "@/components/admin/sales-ranking";
 import { InventoryTable } from "@/components/admin/inventory-table";
 import { OrdersTable } from "@/components/admin/orders-table";
+import { NotificationRecipients } from "@/components/admin/notification-recipients";
 import { AdminPinGate } from "@/components/admin/admin-pin-gate";
+import { listAdminNotificationRecipients } from "@/app/admin/actions";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   getRevenueStats,
@@ -26,13 +28,14 @@ import { isSupabaseConfigured } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  const [stats, ranking, lowStockProducts, products, orders] =
+  const [stats, ranking, lowStockProducts, inventory, orders, notificationRecipients] =
     await Promise.all([
       getRevenueStats(),
       getProductSalesRanking(),
       getLowStockProducts(),
       getAllProductsForAdmin(),
       getCompletedOrdersForAdmin(),
+      listAdminNotificationRecipients(),
     ]);
 
   return (
@@ -70,6 +73,7 @@ export default async function AdminPage() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="inventory">Inventory</TabsTrigger>
             <TabsTrigger value="orders">Orders</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="flex flex-col gap-3 sm:gap-4">
@@ -99,11 +103,18 @@ export default async function AdminPage() {
           </TabsContent>
 
           <TabsContent value="inventory">
-            <InventoryTable products={products} />
+            <InventoryTable products={inventory.products} loadError={inventory.error} />
           </TabsContent>
 
           <TabsContent value="orders">
             <OrdersTable orders={orders} />
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <NotificationRecipients
+              recipients={notificationRecipients.recipients}
+              setupError={notificationRecipients.success ? undefined : notificationRecipients.error}
+            />
           </TabsContent>
         </Tabs>
       </div>

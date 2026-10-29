@@ -10,6 +10,7 @@ const anonKey =
   process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && (serviceRoleKey || anonKey));
+export const isSupabaseAdminConfigured = Boolean(supabaseUrl && serviceRoleKey);
 
 /**
  * Server-only Supabase client. Prefers the service role key so Server
