@@ -7,9 +7,6 @@ import { getOrderPaymentStatus } from "@/lib/payments/lipila-orders";
 
 const PAYMENT_METHODS: PaymentMethod[] = [
   "MOBILE_MONEY",
-  "MTN_MOMO",
-  "AIRTEL_MONEY",
-  "ZAMTEL_MONEY",
   "BANK_CARD",
 ];
 

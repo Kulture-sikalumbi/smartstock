@@ -23,24 +23,6 @@ export const PAYMENT_METHODS: {
     icon: "/mobile-money.svg",
   },
   {
-    value: "MTN_MOMO",
-    label: "MTN MoMo",
-    description: "Pay with your MTN Mobile Money wallet",
-    icon: "/mtn-logo.webp",
-  },
-  {
-    value: "AIRTEL_MONEY",
-    label: "Airtel Money",
-    description: "Pay with your Airtel Money wallet",
-    icon: "/airtel-logo.webp",
-  },
-  {
-    value: "ZAMTEL_MONEY",
-    label: "Zamtel Kwacha",
-    description: "Pay with your Zamtel Mobile Money wallet",
-    icon: "/zamtel.webp",
-  },
-  {
     value: "BANK_CARD",
     label: "Bank Card",
     description: "Pay with a Visa or Mastercard",
