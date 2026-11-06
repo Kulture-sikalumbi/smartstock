@@ -1,7 +1,12 @@
 "use server";
 
 import type { CartItem, PaymentMethod } from "@/lib/types";
-import { LipilaApiError, normalizeZambianPhone, startLipilaPayment } from "@/lib/lipila";
+import {
+  getMobileMoneyFailureMessage,
+  LipilaApiError,
+  normalizeZambianPhone,
+  startLipilaPayment,
+} from "@/lib/lipila";
 import { getServerSupabase, isSupabaseAdminConfigured } from "@/lib/supabase/server";
 import { getOrderPaymentStatus } from "@/lib/payments/lipila-orders";
 
@@ -15,7 +20,6 @@ export interface CreateOrderInput {
 export interface CreateOrderResult {
   success: boolean;
   orderId?: string;
-  redirectUrl?: string;
   error?: string;
 }
 
@@ -156,17 +160,20 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
 
     if (payment.status === "Failed") {
       await supabase.from("orders").update({ status: "FAILED" }).eq("id", order.id);
-      return { success: false, error: "We could not start your payment. Please check your phone number and try again." };
+      return {
+        success: false,
+        error: payment.failureMessage ?? "The payment was not completed. Check your phone and try again.",
+      };
     }
 
-    return { success: true, orderId: order.id, redirectUrl: payment.redirectUrl };
+    return { success: true, orderId: order.id };
   } catch (error) {
     console.error("Lipila payment initiation failed:", error instanceof Error ? error.message : error);
     if (error instanceof LipilaApiError && error.statusCode < 500) {
       await supabase.from("orders").update({ status: "FAILED" }).eq("id", order.id);
       return {
         success: false,
-        error: "We could not start your payment. Please check your phone number and try again.",
+        error: getMobileMoneyFailureMessage(error.message),
       };
     }
     return {

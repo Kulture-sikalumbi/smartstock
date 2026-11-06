@@ -61,7 +61,9 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
           router.refresh();
           return;
         } else if (result.status === "FAILED") {
-          setErrorMessage("The payment was not completed. You can try again.");
+          setErrorMessage(
+            result.failureMessage ?? "The payment was not completed. Check your phone and try again."
+          );
           setStep("error");
           return;
         }
@@ -112,10 +114,6 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
       setConfirmedTotal(totalPrice);
       setOrderId(result.orderId ?? null);
       setPendingMessage(result.error ?? "");
-      if (result.redirectUrl) {
-        window.location.assign(result.redirectUrl);
-        return;
-      }
       setStep("waiting");
     } else {
       setErrorMessage(result.error ?? "Payment failed. Please try again.");

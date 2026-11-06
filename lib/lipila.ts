@@ -32,6 +32,17 @@ export class LipilaApiError extends Error {
   }
 }
 
+export function getMobileMoneyFailureMessage(providerMessage?: string): string {
+  const message = providerMessage?.toLowerCase() ?? "";
+  if (/absent subscriber|subscriber not reachable|subscriber unreachable/.test(message)) {
+    return "We couldn't reach that mobile wallet. Check that the phone is on, has signal, and the number is active, then try again.";
+  }
+  if (/low.balance|not enough money|insufficient balance/.test(message)) {
+    return "That mobile wallet does not have enough balance. Top it up and try again.";
+  }
+  return "The payment was not completed. Check your phone and try again.";
+}
+
 function getApiConfiguration() {
   const apiKey = process.env.LIPILA_API_KEY;
   if (!apiKey) throw new Error("Lipila payments are not configured.");
@@ -86,7 +97,7 @@ export function normalizeZambianPhone(phone: string): string | null {
 
 export async function startLipilaPayment(
   input: StartLipilaPaymentInput
-): Promise<{ status: LipilaPaymentStatus; redirectUrl?: string }> {
+): Promise<{ status: LipilaPaymentStatus; failureMessage?: string }> {
   const callbackUrl = process.env.NEXT_PUBLIC_SITE_URL
     ? new URL("/api/payments/lipila/webhook", process.env.NEXT_PUBLIC_SITE_URL).toString()
     : undefined;
@@ -107,7 +118,13 @@ export async function startLipilaPayment(
   const status = normalizeLipilaStatus(transaction.status);
   if (!status) throw new Error("Lipila returned an unknown payment status.");
 
-  return { status };
+  return {
+    status,
+    failureMessage:
+      status === "Failed"
+        ? getMobileMoneyFailureMessage(transaction.message)
+        : undefined,
+  };
 }
 
 function normalizeLipilaStatus(status: string): LipilaPaymentStatus | null {

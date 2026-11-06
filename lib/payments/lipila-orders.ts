@@ -3,7 +3,10 @@ import {
   notifyLowStockTransition,
   sendNewOrderAlert,
 } from "@/app/actions/notifications";
-import { getLipilaPaymentStatus } from "@/lib/lipila";
+import {
+  getLipilaPaymentStatus,
+  getMobileMoneyFailureMessage,
+} from "@/lib/lipila";
 import { getServerSupabase, isSupabaseAdminConfigured } from "@/lib/supabase/server";
 import type { CartItem, OrderStatus, PaymentMethod } from "@/lib/types";
 
@@ -30,6 +33,7 @@ function toPaymentItems(items: Array<{
 export async function refreshLipilaOrder(orderId: string): Promise<{
   status: PublicPaymentStatus;
   totalAmount?: number;
+  failureMessage?: string;
 }> {
   if (!isSupabaseAdminConfigured) return { status: "UNKNOWN" };
 
@@ -127,7 +131,14 @@ export async function refreshLipilaOrder(orderId: string): Promise<{
 
   revalidatePath("/");
   revalidatePath("/admin");
-  return { status: nextStatus, totalAmount: Number(order.total_amount) };
+  return {
+    status: nextStatus,
+    totalAmount: Number(order.total_amount),
+    failureMessage:
+      nextStatus === "FAILED"
+        ? getMobileMoneyFailureMessage(transaction.message)
+        : undefined,
+  };
 }
 
 export async function getOrderPaymentStatus(orderId: string) {
