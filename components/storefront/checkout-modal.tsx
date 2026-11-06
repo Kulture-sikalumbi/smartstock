@@ -61,7 +61,7 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
           router.refresh();
           return;
         } else if (result.status === "FAILED") {
-          setErrorMessage("Lipila reports that this payment failed. You can try again.");
+          setErrorMessage("The payment was not completed. You can try again.");
           setStep("error");
           return;
         }
@@ -222,10 +222,10 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
             <Loader2 className="h-10 w-10 animate-spin text-zinc-900" />
             <div>
               <p className="font-medium text-zinc-900">
-                Starting your Lipila payment...
+                Processing your payment...
               </p>
               <p className="text-sm text-zinc-500">
-                Keep this page open while the request is sent.
+                Check your phone and confirm the payment request.
               </p>
             </div>
           </div>
@@ -235,12 +235,12 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
           <div className="flex flex-col items-center gap-4 py-10 text-center">
             <Loader2 className="h-10 w-10 animate-spin text-zinc-900" />
             <div>
-              <DialogTitle>Approve the payment on your phone</DialogTitle>
+              <DialogTitle>Check your phone to confirm payment</DialogTitle>
               <p className="mt-2 text-sm text-zinc-500">
-                      We sent a Lipila request to {phone}. Lipila detects the network from your number. Enter your Mobile Money PIN to approve it.
+                Follow the prompt sent to {phone} and enter your Mobile Money PIN.
               </p>
               {pendingMessage && <p className="mt-2 text-sm text-amber-700">{pendingMessage}</p>}
-              <p className="mt-2 text-xs text-zinc-500">Waiting for Lipila to confirm payment…</p>
+              <p className="mt-2 text-xs text-zinc-500">Waiting for payment confirmation…</p>
             </div>
             {orderId && (
               <Button asChild variant="outline">

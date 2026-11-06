@@ -38,7 +38,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     return { success: false, error: "Your cart is empty or contains too many items." };
   }
   if (!process.env.LIPILA_API_KEY) {
-    return { success: false, error: "Lipila payments are not configured yet." };
+    return { success: false, error: "Mobile Money payments are temporarily unavailable. Please try again later." };
   }
   if (process.env.LIPILA_ENV === "production") {
     try {
@@ -46,11 +46,11 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       if (siteUrl.protocol !== "https:" || !process.env.LIPILA_WEBHOOK_SECRET) {
         return {
           success: false,
-          error: "Production Lipila checkout needs an HTTPS site URL and webhook signing secret.",
+          error: "Payments are temporarily unavailable. Please try again later.",
         };
       }
     } catch {
-      return { success: false, error: "Set the production site URL before enabling Lipila checkout." };
+      return { success: false, error: "Payments are temporarily unavailable. Please try again later." };
     }
   }
   if (!isSupabaseAdminConfigured) {
@@ -156,7 +156,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
 
     if (payment.status === "Failed") {
       await supabase.from("orders").update({ status: "FAILED" }).eq("id", order.id);
-      return { success: false, error: "Lipila could not start this payment. Please try again." };
+      return { success: false, error: "We could not start your payment. Please check your phone number and try again." };
     }
 
     return { success: true, orderId: order.id, redirectUrl: payment.redirectUrl };
@@ -166,7 +166,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       await supabase.from("orders").update({ status: "FAILED" }).eq("id", order.id);
       return {
         success: false,
-        error: "Lipila rejected the payment request. Check the payment details and try again.",
+        error: "We could not start your payment. Please check your phone number and try again.",
       };
     }
     return {

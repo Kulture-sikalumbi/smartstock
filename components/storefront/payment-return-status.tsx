@@ -38,10 +38,10 @@ export function PaymentReturnStatus({ orderId }: { orderId: string }) {
     status === "COMPLETED"
       ? "Payment confirmed. Your order is complete."
       : status === "FAILED"
-        ? "Lipila could not complete the payment. No order was confirmed."
+        ? "The payment was not completed. No order was confirmed."
         : status === "UNKNOWN"
           ? "We could not find this order. Contact the store before trying again."
-          : "We are waiting for Lipila to confirm your payment. This can take a moment.";
+          : "We are checking your payment status. This can take a moment.";
 
   return (
     <main className="mx-auto flex min-h-[60vh] w-full max-w-xl flex-col items-center justify-center gap-5 px-4 text-center">
