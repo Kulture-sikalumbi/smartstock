@@ -67,9 +67,9 @@ function escapeHtml(value: string): string {
 }
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-GH", {
+  return new Intl.NumberFormat("en-ZM", {
     style: "currency",
-    currency: "GHS",
+    currency: "ZMW",
   }).format(amount);
 }
 

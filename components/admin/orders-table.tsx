@@ -15,8 +15,10 @@ const PAYMENT_BADGE_VARIANT: Record<
   PaymentMethod,
   "warning" | "destructive" | "secondary"
 > = {
+  MOBILE_MONEY: "warning",
   MTN_MOMO: "warning",
   AIRTEL_MONEY: "destructive",
+  ZAMTEL_MONEY: "warning",
   BANK_CARD: "secondary",
 };
 

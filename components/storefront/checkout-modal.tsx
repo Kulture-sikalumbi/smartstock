@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, XCircle } from "lucide-react";
 import {
@@ -17,11 +18,11 @@ import { Label } from "@/components/ui/label";
 import { cn, formatCurrency } from "@/lib/utils";
 import { PAYMENT_METHODS } from "@/lib/constants";
 import { useCartStore } from "@/store/cart-store";
-import { createOrder } from "@/app/actions/orders";
+import { checkOrderPayment, createOrder } from "@/app/actions/orders";
 import { OrderConfirmationReceipt } from "./order-confirmation-receipt";
 import type { PaymentMethod } from "@/lib/types";
 
-type Step = "form" | "processing" | "success" | "error";
+type Step = "form" | "processing" | "waiting" | "success" | "error";
 
 interface CheckoutModalProps {
   open: boolean;
@@ -37,19 +38,63 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
   const [step, setStep] = useState<Step>("form");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("MTN_MOMO");
+  const [email, setEmail] = useState("");
+  const [city, setCity] = useState("");
+  const [address, setAddress] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("MOBILE_MONEY");
   const [errorMessage, setErrorMessage] = useState("");
   const [orderId, setOrderId] = useState<string | null>(null);
   const [confirmedTotal, setConfirmedTotal] = useState(0);
+  const [pendingMessage, setPendingMessage] = useState("");
+
+  useEffect(() => {
+    if (step !== "waiting" || !orderId) return;
+
+    let stopped = false;
+    let timer: number | undefined;
+    const checkStatus = async () => {
+      try {
+        const result = await checkOrderPayment(orderId);
+        if (stopped) return;
+
+        if (result.status === "COMPLETED") {
+          setConfirmedTotal(result.totalAmount ?? totalPrice);
+          setStep("success");
+          clearCart();
+          router.refresh();
+          return;
+        } else if (result.status === "FAILED") {
+          setErrorMessage("Lipila reports that this payment failed. You can try again.");
+          setStep("error");
+          return;
+        }
+      } catch {
+        // Keep waiting and retry the provider status check.
+      }
+      if (!stopped) timer = window.setTimeout(() => void checkStatus(), 5000);
+    };
+
+    void checkStatus();
+    return () => {
+      stopped = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [step, orderId, totalPrice, clearCart, router]);
 
   function resetAndClose() {
     setStep("form");
     setName("");
     setPhone("");
-    setPaymentMethod("MTN_MOMO");
+    setEmail("");
+    setCity("");
+    setAddress("");
+    setPostalCode("");
+    setPaymentMethod("MOBILE_MONEY");
     setErrorMessage("");
     setOrderId(null);
     setConfirmedTotal(0);
+    setPendingMessage("");
     onOpenChange(false);
   }
 
@@ -57,23 +102,33 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
     e.preventDefault();
     setStep("processing");
 
-    // Simulate the USSD / bank authorization prompt.
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    const result = await createOrder({
-      customerName: name,
-      customerPhone: phone,
-      paymentMethod,
-      items,
-    });
+    let result;
+    try {
+      result = await createOrder({
+        customerName: name,
+        customerPhone: phone,
+        paymentMethod,
+        email,
+        city,
+        address,
+        postalCode,
+        items,
+      });
+    } catch {
+      setErrorMessage("Could not start payment. Please try again.");
+      setStep("error");
+      return;
+    }
 
     if (result.success) {
-      // Store the total before clearing cart so it displays correctly in receipt
       setConfirmedTotal(totalPrice);
       setOrderId(result.orderId ?? null);
-      setStep("success");
-      clearCart();
-      router.refresh();
+      setPendingMessage(result.error ?? "");
+      if (result.redirectUrl) {
+        window.location.assign(result.redirectUrl);
+        return;
+      }
+      setStep("waiting");
     } else {
       setErrorMessage(result.error ?? "Payment failed. Please try again.");
       setStep("error");
@@ -116,9 +171,32 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="024 123 4567"
+                placeholder="097 123 4567"
               />
             </div>
+
+            {paymentMethod === "BANK_CARD" && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="checkout-email">Email</Label>
+                  <Input id="checkout-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="checkout-city">City</Label>
+                    <Input id="checkout-city" required value={city} onChange={(e) => setCity(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="checkout-postal">Postal code</Label>
+                    <Input id="checkout-postal" required value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="checkout-address">Billing address</Label>
+                  <Input id="checkout-address" required value={address} onChange={(e) => setAddress(e.target.value)} />
+                </div>
+              </>
+            )}
 
             <div className="grid gap-2">
               <Label>Payment method</Label>
@@ -166,16 +244,31 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
             <Loader2 className="h-10 w-10 animate-spin text-zinc-900" />
             <div>
               <p className="font-medium text-zinc-900">
-                {paymentMethod === "BANK_CARD"
-                  ? "Authorizing your card payment..."
-                  : "Check your phone to approve the prompt..."}
+                Starting your Lipila payment...
               </p>
               <p className="text-sm text-zinc-500">
-                {paymentMethod === "BANK_CARD"
-                  ? "Confirming with your bank"
-                  : "Enter your Mobile Money PIN to confirm"}
+                Keep this page open while the request is sent.
               </p>
             </div>
+          </div>
+        )}
+
+        {step === "waiting" && (
+          <div className="flex flex-col items-center gap-4 py-10 text-center">
+            <Loader2 className="h-10 w-10 animate-spin text-zinc-900" />
+            <div>
+              <DialogTitle>Approve the payment on your phone</DialogTitle>
+              <p className="mt-2 text-sm text-zinc-500">
+                      We sent a Lipila request to {phone}. Lipila detects the network from your number. Enter your Mobile Money PIN to approve it.
+              </p>
+              {pendingMessage && <p className="mt-2 text-sm text-amber-700">{pendingMessage}</p>}
+              <p className="mt-2 text-xs text-zinc-500">Waiting for Lipila to confirm payment…</p>
+            </div>
+            {orderId && (
+              <Button asChild variant="outline">
+                <Link href={`/payment/return/${orderId}`}>View payment status</Link>
+              </Button>
+            )}
           </div>
         )}
 

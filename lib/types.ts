@@ -1,6 +1,11 @@
 export type OrderStatus = "PENDING" | "COMPLETED" | "FAILED";
 
-export type PaymentMethod = "MTN_MOMO" | "AIRTEL_MONEY" | "BANK_CARD";
+export type PaymentMethod =
+  | "MOBILE_MONEY"
+  | "MTN_MOMO"
+  | "AIRTEL_MONEY"
+  | "ZAMTEL_MONEY"
+  | "BANK_CARD";
 
 export interface Product {
   id: string;

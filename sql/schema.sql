@@ -26,7 +26,7 @@ create index if not exists products_category_idx on public.products (category);
 -- orders
 -- ----------------------------------------------------------------------------
 create type public.order_status as enum ('PENDING', 'COMPLETED', 'FAILED');
-create type public.payment_method as enum ('MTN_MOMO', 'AIRTEL_MONEY', 'BANK_CARD');
+create type public.payment_method as enum ('MOBILE_MONEY', 'MTN_MOMO', 'AIRTEL_MONEY', 'ZAMTEL_MONEY', 'BANK_CARD');
 
 create table if not exists public.orders (
   id              uuid primary key default gen_random_uuid(),
@@ -50,7 +50,8 @@ create table if not exists public.order_items (
   product_id    uuid not null references public.products (id) on delete restrict,
   product_name  text not null,
   quantity      integer not null check (quantity > 0),
-  unit_price    numeric(10, 2) not null check (unit_price >= 0)
+  unit_price    numeric(10, 2) not null check (unit_price >= 0),
+  stock_before  integer check (stock_before >= 0)
 );
 
 create index if not exists order_items_order_id_idx on public.order_items (order_id);
@@ -66,47 +67,66 @@ create table if not exists public.admin_notification_recipients (
 );
 
 -- ============================================================================
--- Trigger: decrement stock_quantity when an order becomes COMPLETED
+-- Reserve stock while payment is pending; release it if Lipila confirms failure.
+-- Completing an order does not deduct stock again.
 -- ============================================================================
-create or replace function public.decrement_stock_on_completed_order()
+create or replace function public.reserve_stock_for_order_item()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  current_status public.order_status;
+  prior_stock integer;
 begin
-  -- Only act the moment an order transitions INTO the COMPLETED state,
-  -- so re-saving an already-completed order never double-decrements stock.
-  if new.status = 'COMPLETED' and (old.status is distinct from 'COMPLETED') then
-    update public.products p
-    set stock_quantity = greatest(p.stock_quantity - oi.quantity, 0)
-    from public.order_items oi
-    where oi.order_id = new.id
-      and oi.product_id = p.id;
+  select status into current_status
+  from public.orders
+  where id = new.order_id
+  for update;
+
+  if current_status is distinct from 'PENDING' then
+    raise exception 'Order must be pending before reserving stock';
   end if;
+
+  select stock_quantity into prior_stock
+  from public.products
+  where id = new.product_id
+  for update;
+
+  if prior_stock is null or prior_stock < new.quantity then
+    raise exception 'Insufficient stock for product %', new.product_id;
+  end if;
+
+  new.stock_before := prior_stock;
+  update public.products
+  set stock_quantity = prior_stock - new.quantity
+  where id = new.product_id;
 
   return new;
 end;
 $$;
 
 drop trigger if exists trg_decrement_stock_on_completed_order on public.orders;
-
-create trigger trg_decrement_stock_on_completed_order
-  after update on public.orders
+drop trigger if exists trg_decrement_stock_on_insert_completed_order on public.orders;
+drop function if exists public.decrement_stock_on_completed_order();
+drop function if exists public.decrement_stock_on_insert_completed_order();
+drop trigger if exists trg_reserve_stock_for_order_item on public.order_items;
+create trigger trg_reserve_stock_for_order_item
+  before insert on public.order_items
   for each row
-  execute function public.decrement_stock_on_completed_order();
+  execute function public.reserve_stock_for_order_item();
 
--- Also handle orders inserted directly as COMPLETED (e.g. seed data / backfills).
-create or replace function public.decrement_stock_on_insert_completed_order()
+create or replace function public.release_stock_for_failed_order()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-  if new.status = 'COMPLETED' then
+  if old.status = 'PENDING' and new.status = 'FAILED' then
     update public.products p
-    set stock_quantity = greatest(p.stock_quantity - oi.quantity, 0)
+    set stock_quantity = p.stock_quantity + oi.quantity
     from public.order_items oi
     where oi.order_id = new.id
       and oi.product_id = p.id;
@@ -116,12 +136,61 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_decrement_stock_on_insert_completed_order on public.orders;
-
-create trigger trg_decrement_stock_on_insert_completed_order
-  after insert on public.orders
+drop trigger if exists trg_release_stock_for_failed_order on public.orders;
+create trigger trg_release_stock_for_failed_order
+  after update on public.orders
   for each row
-  execute function public.decrement_stock_on_insert_completed_order();
+  execute function public.release_stock_for_failed_order();
+
+create or replace function public.lipila_checkout_ready()
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select
+    exists (
+      select 1
+      from pg_trigger t
+      join pg_class c on c.oid = t.tgrelid
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public'
+        and c.relname = 'order_items'
+        and t.tgname = 'trg_reserve_stock_for_order_item'
+        and not t.tgisinternal
+    )
+    and exists (
+      select 1
+      from pg_trigger t
+      join pg_class c on c.oid = t.tgrelid
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public'
+        and c.relname = 'orders'
+        and t.tgname = 'trg_release_stock_for_failed_order'
+        and not t.tgisinternal
+    )
+    and exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'order_items'
+        and column_name = 'stock_before'
+    )
+    and exists (
+      select 1
+      from pg_type pt
+      join pg_namespace pn on pn.oid = pt.typnamespace
+      join pg_enum pe on pe.enumtypid = pt.oid
+      where pn.nspname = 'public'
+        and pt.typname = 'payment_method'
+        and pe.enumlabel = 'ZAMTEL_MONEY'
+    );
+$$;
+
+revoke all on function public.lipila_checkout_ready() from public, anon, authenticated;
+grant execute on function public.lipila_checkout_ready() to service_role;
+
+notify pgrst, 'reload schema';
 
 -- ============================================================================
 -- Row Level Security

@@ -163,7 +163,7 @@ export function OrderConfirmationReceipt({
       {/* Confirmation Message */}
       <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3">
         <p className="text-sm text-emerald-900">
-          ✓ Thank you for your order! You&apos;ll receive an SMS confirmation shortly.
+          ✓ Thank you for your order. Your payment has been confirmed.
         </p>
       </div>
     </div>

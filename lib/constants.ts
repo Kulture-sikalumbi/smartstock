@@ -17,6 +17,12 @@ export const PAYMENT_METHODS: {
   icon: string;
 }[] = [
   {
+    value: "MOBILE_MONEY",
+    label: "Mobile Money",
+    description: "MTN, Airtel, or Zamtel. Lipila detects your network from your number.",
+    icon: "/mobile-money.svg",
+  },
+  {
     value: "MTN_MOMO",
     label: "MTN MoMo",
     description: "Pay with your MTN Mobile Money wallet",
@@ -27,6 +33,12 @@ export const PAYMENT_METHODS: {
     label: "Airtel Money",
     description: "Pay with your Airtel Money wallet",
     icon: "/airtel-logo.webp",
+  },
+  {
+    value: "ZAMTEL_MONEY",
+    label: "Zamtel Kwacha",
+    description: "Pay with your Zamtel Mobile Money wallet",
+    icon: "/zamtel.webp",
   },
   {
     value: "BANK_CARD",

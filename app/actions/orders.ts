@@ -1,86 +1,155 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { getServerSupabase, isSupabaseConfigured } from "@/lib/supabase/server";
-import {
-  notifyLowStockTransition,
-  sendNewOrderAlert,
-} from "@/app/actions/notifications";
 import type { CartItem, PaymentMethod } from "@/lib/types";
+import { LipilaApiError, normalizeZambianPhone, startLipilaPayment } from "@/lib/lipila";
+import { getServerSupabase, isSupabaseAdminConfigured } from "@/lib/supabase/server";
+import { getOrderPaymentStatus } from "@/lib/payments/lipila-orders";
+
+const PAYMENT_METHODS: PaymentMethod[] = [
+  "MOBILE_MONEY",
+  "MTN_MOMO",
+  "AIRTEL_MONEY",
+  "ZAMTEL_MONEY",
+  "BANK_CARD",
+];
 
 export interface CreateOrderInput {
   customerName: string;
   customerPhone: string;
   paymentMethod: PaymentMethod;
+  email?: string;
+  city?: string;
+  address?: string;
+  postalCode?: string;
   items: CartItem[];
 }
 
 export interface CreateOrderResult {
   success: boolean;
   orderId?: string;
+  redirectUrl?: string;
   error?: string;
 }
 
-/**
- * Simulates a completed mobile-money / card payment and persists the
- * order to Supabase. The order is first written as PENDING together
- * with its line items, then flipped to COMPLETED — which is what the
- * `decrement_stock_on_completed_order` trigger listens for to reduce
- * `stock_quantity` on each purchased product (see sql/schema.sql).
- */
-export async function createOrder(
-  input: CreateOrderInput
-): Promise<CreateOrderResult> {
-  const { customerName, customerPhone, paymentMethod, items } = input;
-
-  if (!items.length) {
-    return { success: false, error: "Your cart is empty." };
-  }
-  if (!customerName.trim() || !customerPhone.trim()) {
-    return { success: false, error: "Name and phone number are required." };
+export async function createOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
+  if (!input || typeof input !== "object") {
+    return { success: false, error: "Invalid checkout request." };
   }
 
-  if (!isSupabaseConfigured) {
-    return {
-      success: false,
-      error:
-        "Supabase isn't configured yet. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to .env.local (see sql/schema.sql).",
-    };
+  const customerName = typeof input.customerName === "string" ? input.customerName.trim() : "";
+  const customerPhone = typeof input.customerPhone === "string"
+    ? normalizeZambianPhone(input.customerPhone)
+    : null;
+  const email = typeof input.email === "string" ? input.email.trim().toLowerCase() || undefined : undefined;
+
+  if (!customerName || customerName.length > 120 || !customerPhone) {
+    return { success: false, error: "Enter your name and a valid Zambian phone number." };
+  }
+  if (!PAYMENT_METHODS.includes(input.paymentMethod)) {
+    return { success: false, error: "Choose a supported payment method." };
+  }
+  if (input.paymentMethod === "BANK_CARD") {
+    if (
+      !email ||
+      !/^\S+@\S+\.\S+$/.test(email) ||
+      typeof input.city !== "string" || !input.city.trim() ||
+      typeof input.address !== "string" || !input.address.trim() ||
+      typeof input.postalCode !== "string" || !input.postalCode.trim()
+    ) {
+      return {
+        success: false,
+        error: "Enter a valid email, city, address, and postal code for card checkout.",
+      };
+    }
+  }
+  if (!Array.isArray(input.items) || !input.items.length || input.items.length > 50) {
+    return { success: false, error: "Your cart is empty or contains too many items." };
+  }
+  if (!process.env.LIPILA_API_KEY) {
+    return { success: false, error: "Lipila payments are not configured yet." };
+  }
+  if (process.env.LIPILA_ENV === "production") {
+    try {
+      const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "");
+      if (siteUrl.protocol !== "https:" || !process.env.LIPILA_WEBHOOK_SECRET) {
+        return {
+          success: false,
+          error: "Production Lipila checkout needs an HTTPS site URL and webhook signing secret.",
+        };
+      }
+    } catch {
+      return { success: false, error: "Set the production site URL before enabling Lipila checkout." };
+    }
+  }
+  if (!isSupabaseAdminConfigured) {
+    return { success: false, error: "Supabase server access is not configured." };
+  }
+
+  const quantities = new Map<string, number>();
+  for (const item of input.items) {
+    if (
+      !item ||
+      typeof item.productId !== "string" ||
+      !/^[0-9a-f-]{36}$/i.test(item.productId) ||
+      !Number.isInteger(item.quantity) ||
+      item.quantity < 1 ||
+      item.quantity > 100
+    ) {
+      return { success: false, error: "The cart contains an invalid item." };
+    }
+    quantities.set(item.productId, (quantities.get(item.productId) ?? 0) + item.quantity);
   }
 
   const supabase = getServerSupabase();
-  const totalAmount = items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
+  const { data: checkoutReady, error: readinessError } = await supabase.rpc(
+    "lipila_checkout_ready"
   );
-
-  // Re-check stock server-side to avoid overselling with stale client state.
-  const productIds = items.map((item) => item.productId);
-  const { data: currentProducts, error: stockCheckError } = await supabase
-    .from("products")
-    .select("id, name, stock_quantity, low_stock_threshold")
-    .in("id", productIds);
-
-  if (stockCheckError) {
-    return { success: false, error: stockCheckError.message };
+  if (readinessError || checkoutReady !== true) {
+    return {
+      success: false,
+      error: "Payment setup is not complete. Please contact the store before retrying.",
+    };
   }
 
-  for (const item of items) {
-    const product = currentProducts?.find((p) => p.id === item.productId);
-    if (!product || product.stock_quantity < item.quantity) {
+  const productIds = [...quantities.keys()];
+  const { data: products, error: productsError } = await supabase
+    .from("products")
+    .select("id, name, price, stock_quantity")
+    .in("id", productIds);
+
+  if (productsError) {
+    return { success: false, error: "Could not validate the cart. Please try again." };
+  }
+
+  for (const [productId, quantity] of quantities) {
+    const product = products?.find((candidate) => candidate.id === productId);
+    if (!product || product.stock_quantity < quantity) {
       return {
         success: false,
-        error: `${item.name} no longer has enough stock available.`,
+        error: `${product?.name ?? "A product"} no longer has enough stock available.`,
       };
     }
   }
 
+  const orderItems = [...quantities.entries()].map(([productId, quantity]) => {
+    const product = products!.find((candidate) => candidate.id === productId)!;
+    return {
+      product_id: product.id,
+      product_name: product.name,
+      quantity,
+      unit_price: product.price,
+    };
+  });
+  const totalAmount = Number(
+    orderItems.reduce((sum, item) => sum + Number(item.unit_price) * item.quantity, 0).toFixed(2)
+  );
+
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .insert({
-      customer_name: customerName.trim(),
-      customer_phone: customerPhone.trim(),
-      payment_method: paymentMethod,
+      customer_name: customerName,
+      customer_phone: customerPhone,
+      payment_method: input.paymentMethod,
       status: "PENDING",
       total_amount: totalAmount,
     })
@@ -88,62 +157,59 @@ export async function createOrder(
     .single();
 
   if (orderError || !order) {
-    return { success: false, error: orderError?.message ?? "Failed to create order." };
+    return { success: false, error: "Could not create the order. Please try again." };
   }
 
   const { error: itemsError } = await supabase.from("order_items").insert(
-    items.map((item) => ({
-      order_id: order.id,
-      product_id: item.productId,
-      product_name: item.name,
-      quantity: item.quantity,
-      unit_price: item.price,
-    }))
+    orderItems.map((item) => ({ ...item, order_id: order.id }))
   );
 
   if (itemsError) {
-    return { success: false, error: itemsError.message };
+    await supabase.from("orders").delete().eq("id", order.id);
+    return {
+      success: false,
+      error: itemsError.message.includes("stock")
+        ? "Stock changed while you were checking out. Please review your cart."
+        : "Could not save the order items. Please try again.",
+    };
   }
 
-  // Flip to COMPLETED — the DB trigger decrements stock_quantity for us.
-  const { error: completeError } = await supabase
-    .from("orders")
-    .update({ status: "COMPLETED" })
-    .eq("id", order.id);
-
-  if (completeError) {
-    return { success: false, error: completeError.message };
-  }
-
-  // The DB trigger has now decremented stock — re-fetch purchased products
-  // and alert when stock first reaches or falls below its threshold.
-  const { data: updatedProducts } = await supabase
-    .from("products")
-    .select("id, name, stock_quantity, low_stock_threshold")
-    .in("id", productIds);
-
-  for (const product of updatedProducts ?? []) {
-    const previous = currentProducts?.find((current) => current.id === product.id);
-    await notifyLowStockTransition({
-      productName: product.name,
-      previousStock: previous?.stock_quantity ?? null,
-      previousThreshold: previous?.low_stock_threshold ?? null,
-      currentStock: product.stock_quantity,
-      currentThreshold: product.low_stock_threshold,
+  try {
+    const payment = await startLipilaPayment({
+      orderId: order.id,
+      amount: totalAmount,
+      paymentMethod: input.paymentMethod,
+      customerName,
+      customerPhone,
+      email,
+      city: input.city?.trim(),
+      address: input.address?.trim(),
+      postalCode: input.postalCode?.trim(),
     });
+
+    if (payment.status === "Failed") {
+      await supabase.from("orders").update({ status: "FAILED" }).eq("id", order.id);
+      return { success: false, error: "Lipila could not start this payment. Please try again." };
+    }
+
+    return { success: true, orderId: order.id, redirectUrl: payment.redirectUrl };
+  } catch (error) {
+    console.error("Lipila payment initiation failed:", error instanceof Error ? error.message : error);
+    if (error instanceof LipilaApiError && error.statusCode < 500) {
+      await supabase.from("orders").update({ status: "FAILED" }).eq("id", order.id);
+      return {
+        success: false,
+        error: "Lipila rejected the payment request. Check the payment details and try again.",
+      };
+    }
+    return {
+      success: true,
+      orderId: order.id,
+      error: "We could not confirm the payment request. Check your phone before retrying.",
+    };
   }
+}
 
-  await sendNewOrderAlert({
-    orderId: order.id,
-    customerName: customerName.trim(),
-    customerPhone: customerPhone.trim(),
-    paymentMethod,
-    totalAmount,
-    items,
-  });
-
-  revalidatePath("/");
-  revalidatePath("/admin");
-
-  return { success: true, orderId: order.id as string };
+export async function checkOrderPayment(orderId: string) {
+  return getOrderPaymentStatus(orderId);
 }
