@@ -21,13 +21,8 @@ interface LipilaResponse extends LipilaTransaction {
 export interface StartLipilaPaymentInput {
   orderId: string;
   amount: number;
-  paymentMethod: "MOBILE_MONEY" | "MTN_MOMO" | "AIRTEL_MONEY" | "ZAMTEL_MONEY" | "BANK_CARD";
-  customerName: string;
+  paymentMethod: "MOBILE_MONEY";
   customerPhone: string;
-  email?: string;
-  city?: string;
-  address?: string;
-  postalCode?: string;
 }
 
 export class LipilaApiError extends Error {
@@ -89,84 +84,28 @@ export function normalizeZambianPhone(phone: string): string | null {
   return /^260\d{9}$/.test(international) ? international : null;
 }
 
-function namesFromFullName(fullName: string) {
-  const [firstName = "", ...lastNameParts] = fullName.trim().split(/\s+/);
-  return { firstName, lastName: lastNameParts.join(" ") || firstName };
-}
-
 export async function startLipilaPayment(
   input: StartLipilaPaymentInput
 ): Promise<{ status: LipilaPaymentStatus; redirectUrl?: string }> {
   const callbackUrl = process.env.NEXT_PUBLIC_SITE_URL
     ? new URL("/api/payments/lipila/webhook", process.env.NEXT_PUBLIC_SITE_URL).toString()
     : undefined;
-  const referenceData = `SmartStock order ${input.orderId}`;
-  let result: LipilaResponse;
-
-  if (input.paymentMethod === "BANK_CARD") {
-    if (!input.email || !input.city || !input.address || !input.postalCode) {
-      throw new Error("Email, city, address, and postal code are required for card payments.");
-    }
-
-    const { firstName, lastName } = namesFromFullName(input.customerName);
-    result = await lipilaRequest<LipilaResponse>("/collections/card", {
-      method: "POST",
-      headers: callbackUrl ? { callbackUrl } : undefined,
-      body: JSON.stringify({
-        customerInfo: {
-          firstName,
-          lastName,
-          phoneNumber: input.customerPhone,
-          city: input.city,
-          country: "ZM",
-          address: input.address,
-          email: input.email,
-          zip: input.postalCode,
-        },
-        collectionRequest: {
-          referenceId: input.orderId,
-          amount: input.amount,
-          narration: "SmartStock product purchase",
-          accountNumber: input.email,
-          currency: "ZMW",
-          backUrl: new URL(
-            `/payment/return/${input.orderId}`,
-            process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
-          ).toString(),
-          referenceData,
-        },
-      }),
-    });
-  } else {
-    result = await lipilaRequest<LipilaResponse>("/collections/mobile-money", {
-      method: "POST",
-      headers: callbackUrl ? { callbackUrl } : undefined,
-      body: JSON.stringify({
-        referenceId: input.orderId,
-        amount: input.amount,
-        narration: "SmartStock product purchase",
-        accountNumber: input.customerPhone,
-        currency: "ZMW",
-        email: input.email,
-        referenceData,
-      }),
-    });
-  }
+  const result = await lipilaRequest<LipilaResponse>("/collections/mobile-money", {
+    method: "POST",
+    headers: callbackUrl ? { callbackUrl } : undefined,
+    body: JSON.stringify({
+      referenceId: input.orderId,
+      amount: input.amount,
+      narration: "SmartStock product purchase",
+      accountNumber: input.customerPhone,
+      currency: "ZMW",
+      referenceData: `SmartStock order ${input.orderId}`,
+    }),
+  });
 
   const transaction = result.data ?? result;
   const status = normalizeLipilaStatus(transaction.status);
   if (!status) throw new Error("Lipila returned an unknown payment status.");
-
-  if (input.paymentMethod === "BANK_CARD") {
-    if (status !== "Pending") return { status };
-    const redirectUrl = transaction.cardRedirectionUrl;
-    if (!redirectUrl) throw new Error("Lipila did not return a card checkout URL.");
-    const url = new URL(redirectUrl);
-    if (url.protocol !== "https:") {
-      throw new Error("Lipila returned an invalid card checkout URL.");
-    }
-    return { status, redirectUrl: url.toString() };
-  }
 
   return { status };
 }

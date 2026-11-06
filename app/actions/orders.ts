@@ -5,19 +5,10 @@ import { LipilaApiError, normalizeZambianPhone, startLipilaPayment } from "@/lib
 import { getServerSupabase, isSupabaseAdminConfigured } from "@/lib/supabase/server";
 import { getOrderPaymentStatus } from "@/lib/payments/lipila-orders";
 
-const PAYMENT_METHODS: PaymentMethod[] = [
-  "MOBILE_MONEY",
-  "BANK_CARD",
-];
-
 export interface CreateOrderInput {
   customerName: string;
   customerPhone: string;
   paymentMethod: PaymentMethod;
-  email?: string;
-  city?: string;
-  address?: string;
-  postalCode?: string;
   items: CartItem[];
 }
 
@@ -37,27 +28,11 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
   const customerPhone = typeof input.customerPhone === "string"
     ? normalizeZambianPhone(input.customerPhone)
     : null;
-  const email = typeof input.email === "string" ? input.email.trim().toLowerCase() || undefined : undefined;
-
   if (!customerName || customerName.length > 120 || !customerPhone) {
     return { success: false, error: "Enter your name and a valid Zambian phone number." };
   }
-  if (!PAYMENT_METHODS.includes(input.paymentMethod)) {
+  if (input.paymentMethod !== "MOBILE_MONEY") {
     return { success: false, error: "Choose a supported payment method." };
-  }
-  if (input.paymentMethod === "BANK_CARD") {
-    if (
-      !email ||
-      !/^\S+@\S+\.\S+$/.test(email) ||
-      typeof input.city !== "string" || !input.city.trim() ||
-      typeof input.address !== "string" || !input.address.trim() ||
-      typeof input.postalCode !== "string" || !input.postalCode.trim()
-    ) {
-      return {
-        success: false,
-        error: "Enter a valid email, city, address, and postal code for card checkout.",
-      };
-    }
   }
   if (!Array.isArray(input.items) || !input.items.length || input.items.length > 50) {
     return { success: false, error: "Your cart is empty or contains too many items." };
@@ -176,12 +151,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       orderId: order.id,
       amount: totalAmount,
       paymentMethod: input.paymentMethod,
-      customerName,
       customerPhone,
-      email,
-      city: input.city?.trim(),
-      address: input.address?.trim(),
-      postalCode: input.postalCode?.trim(),
     });
 
     if (payment.status === "Failed") {

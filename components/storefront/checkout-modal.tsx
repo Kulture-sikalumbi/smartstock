@@ -38,10 +38,6 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
   const [step, setStep] = useState<Step>("form");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [city, setCity] = useState("");
-  const [address, setAddress] = useState("");
-  const [postalCode, setPostalCode] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("MOBILE_MONEY");
   const [errorMessage, setErrorMessage] = useState("");
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -86,10 +82,6 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
     setStep("form");
     setName("");
     setPhone("");
-    setEmail("");
-    setCity("");
-    setAddress("");
-    setPostalCode("");
     setPaymentMethod("MOBILE_MONEY");
     setErrorMessage("");
     setOrderId(null);
@@ -108,10 +100,6 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
         customerName: name,
         customerPhone: phone,
         paymentMethod,
-        email,
-        city,
-        address,
-        postalCode,
         items,
       });
     } catch {
@@ -175,29 +163,6 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
               />
             </div>
 
-            {paymentMethod === "BANK_CARD" && (
-              <>
-                <div className="grid gap-2">
-                  <Label htmlFor="checkout-email">Email</Label>
-                  <Input id="checkout-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <div className="grid gap-2">
-                    <Label htmlFor="checkout-city">City</Label>
-                    <Input id="checkout-city" required value={city} onChange={(e) => setCity(e.target.value)} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="checkout-postal">Postal code</Label>
-                    <Input id="checkout-postal" required value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="checkout-address">Billing address</Label>
-                  <Input id="checkout-address" required value={address} onChange={(e) => setAddress(e.target.value)} />
-                </div>
-              </>
-            )}
-
             <div className="grid gap-2">
               <Label>Payment method</Label>
               <div className="grid gap-2">
@@ -225,6 +190,19 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
                       <span className="block text-xs text-zinc-500">
                         {method.description}
                       </span>
+                      {method.networks && (
+                        <span className="mt-2 flex flex-wrap gap-2">
+                          {method.networks.map((network) => (
+                            <span
+                              key={network.label}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-600"
+                            >
+                              <img src={network.icon} alt="" className="h-4 w-4 object-contain" />
+                              {network.label}
+                            </span>
+                          ))}
+                        </span>
+                      )}
                     </span>
                   </button>
                 ))}

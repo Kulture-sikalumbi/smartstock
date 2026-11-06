@@ -1,0 +1,21 @@
+name: Daily sales summary email
+
+on:
+  schedule:
+    # 00:05 in Zambia (UTC+2), covering the previous complete local day.
+    - cron: "5 22 * * *"
+  workflow_dispatch:
+
+jobs:
+  send-summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send daily sales summary
+        env:
+          DAILY_SALES_CRON_SECRET: ${{ secrets.DAILY_SALES_CRON_SECRET }}
+        run: |
+          test -n "$DAILY_SALES_CRON_SECRET"
+          curl --fail --silent --show-error --max-time 90 \
+            -X POST \
+            -H "Authorization: Bearer $DAILY_SALES_CRON_SECRET" \
+            https://smartstock-bnc0hgg5buf6f3es.southafricanorth-01.azurewebsites.net/api/cron/daily-sales-summary

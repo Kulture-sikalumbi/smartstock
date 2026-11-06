@@ -2,7 +2,11 @@
 
 import nodemailer from "nodemailer";
 import type { CartItem, PaymentMethod } from "@/lib/types";
-import { getServerSupabase, isSupabaseConfigured } from "@/lib/supabase/server";
+import {
+  getServerSupabase,
+  isSupabaseAdminConfigured,
+  isSupabaseConfigured,
+} from "@/lib/supabase/server";
 
 export interface LowStockAlertInput {
   productName: string;
@@ -270,6 +274,128 @@ export async function sendNewOrderAlert(
         <thead><tr><th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Item</th><th style="padding:8px;border:1px solid #e5e7eb">Qty</th><th style="padding:8px;border:1px solid #e5e7eb;text-align:right">Subtotal</th></tr></thead>
         <tbody>${rows}</tbody>
         <tfoot><tr><td colspan="2" style="padding:8px;border:1px solid #e5e7eb"><strong>Total</strong></td><td style="padding:8px;border:1px solid #e5e7eb;text-align:right"><strong>${escapeHtml(formatCurrency(input.totalAmount))}</strong></td></tr></tfoot>
+      </table>
+      <p style="color:#6b7280;font-size:12px">Sent automatically by Smart Stock.</p>
+    </div>`
+  );
+}
+
+function getLusakaDayStart(date: Date): Date {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Lusaka",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return new Date(`${values.year}-${values.month}-${values.day}T00:00:00+02:00`);
+}
+
+function getLusakaDateKey(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Lusaka",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+/** Email the previous complete Zambia day: paid sales and products with no sales. */
+export async function sendDailySalesSummary(): Promise<AdminAlertResult> {
+  if (!isSupabaseAdminConfigured) {
+    return { success: false, error: "Supabase server access is not configured." };
+  }
+
+  const lusakaTodayStart = getLusakaDayStart(new Date());
+  const periodEnd = lusakaTodayStart;
+  const periodStart = new Date(periodEnd.getTime() - 24 * 60 * 60 * 1000);
+  const reportDate = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Lusaka",
+    dateStyle: "long",
+  }).format(periodStart);
+  const reportDateKey = getLusakaDateKey(periodStart);
+
+  const supabase = getServerSupabase();
+  const [{ data: products, error: productsError }, { data: orders, error: ordersError }] =
+    await Promise.all([
+      supabase
+        .from("products")
+        .select("id, name, stock_quantity")
+        .order("name", { ascending: true }),
+      supabase
+        .from("orders")
+        .select("id, total_amount, order_items(product_id, product_name, quantity, unit_price)")
+        .eq("status", "COMPLETED")
+        .gte("created_at", periodStart.toISOString())
+        .lt("created_at", periodEnd.toISOString()),
+    ]);
+
+  if (productsError || ordersError) {
+    return { success: false, error: "Could not load the daily sales data from Supabase." };
+  }
+
+  const soldProducts = new Map<
+    string,
+    { name: string; quantity: number; revenue: number }
+  >();
+  let unitsSold = 0;
+  let revenue = 0;
+
+  for (const order of orders ?? []) {
+    revenue += Number(order.total_amount) || 0;
+    for (const item of order.order_items ?? []) {
+      const previous = soldProducts.get(item.product_id) ?? {
+        name: item.product_name,
+        quantity: 0,
+        revenue: 0,
+      };
+      previous.quantity += Number(item.quantity) || 0;
+      previous.revenue += (Number(item.unit_price) || 0) * (Number(item.quantity) || 0);
+      unitsSold += Number(item.quantity) || 0;
+      soldProducts.set(item.product_id, previous);
+    }
+  }
+
+  const soldRows = [...soldProducts.values()]
+    .sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name))
+    .map((item) => `<tr>
+      <td style="padding:8px;border:1px solid #e5e7eb">${escapeHtml(item.name)}</td>
+      <td style="padding:8px;border:1px solid #e5e7eb;text-align:center">${item.quantity}</td>
+      <td style="padding:8px;border:1px solid #e5e7eb;text-align:right">${escapeHtml(formatCurrency(item.revenue))}</td>
+    </tr>`)
+    .join("");
+
+  const unsoldProducts = (products ?? []).filter((product) => !soldProducts.has(product.id));
+  const unsoldRows = unsoldProducts
+    .map((product) => `<tr>
+      <td style="padding:8px;border:1px solid #e5e7eb">${escapeHtml(product.name)}</td>
+      <td style="padding:8px;border:1px solid #e5e7eb;text-align:center">${product.stock_quantity}</td>
+    </tr>`)
+    .join("");
+
+  return sendAdminEmail(
+    `Daily sales summary — ${reportDateKey}`,
+    `<div style="font-family:sans-serif;max-width:760px;margin:0 auto;color:#18181b">
+      <h2>Daily Sales Summary</h2>
+      <p>Completed sales for <strong>${escapeHtml(reportDate)}</strong> (Zambia time).</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        <tbody>
+          <tr><td style="padding:8px;border:1px solid #e5e7eb">Completed orders</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:right"><strong>${orders?.length ?? 0}</strong></td></tr>
+          <tr><td style="padding:8px;border:1px solid #e5e7eb">Units sold</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:right"><strong>${unitsSold}</strong></td></tr>
+          <tr><td style="padding:8px;border:1px solid #e5e7eb">Sales revenue</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:right"><strong>${escapeHtml(formatCurrency(revenue))}</strong></td></tr>
+        </tbody>
+      </table>
+      <h3>Products sold (${soldProducts.size})</h3>
+      <table style="width:100%;border-collapse:collapse;margin:12px 0">
+        <thead><tr><th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Product</th><th style="padding:8px;border:1px solid #e5e7eb">Units</th><th style="padding:8px;border:1px solid #e5e7eb;text-align:right">Revenue</th></tr></thead>
+        <tbody>${soldRows || '<tr><td colspan="3" style="padding:8px;border:1px solid #e5e7eb">No completed sales yesterday.</td></tr>'}</tbody>
+      </table>
+      <h3>Products with no sales (${unsoldProducts.length})</h3>
+      <table style="width:100%;border-collapse:collapse;margin:12px 0">
+        <thead><tr><th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Product</th><th style="padding:8px;border:1px solid #e5e7eb">Current stock</th></tr></thead>
+        <tbody>${unsoldRows || '<tr><td colspan="2" style="padding:8px;border:1px solid #e5e7eb">Every product recorded a sale.</td></tr>'}</tbody>
       </table>
       <p style="color:#6b7280;font-size:12px">Sent automatically by Smart Stock.</p>
     </div>`

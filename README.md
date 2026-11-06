@@ -7,12 +7,12 @@ Smart Stock is a full-stack e-commerce and inventory platform for small and medi
 This application helps SMEs:
 
 - showcase products online,
-- sell stock through a mobile-money or card-style checkout flow,
+- sell stock through a Lipila mobile-money checkout,
 - automatically track inventory changes,
 - review sales performance from an admin dashboard,
 - receive low-stock alerts when items fall below their configured threshold.
 
-The app is designed for Zambian commerce, with Lipila-detected MTN MoMo, Airtel Money, Zamtel Kwacha, and hosted bank-card payments.
+The app is designed for Zambian commerce, with Lipila-detected MTN MoMo, Airtel Money, and Zamtel Kwacha payments.
 
 ## Key features
 
@@ -20,7 +20,8 @@ The app is designed for Zambian commerce, with Lipila-detected MTN MoMo, Airtel 
 - Customer account registration and email/password sign-in via Supabase Auth
 - Category filtering and product detail pages
 - Persistent cart using Zustand
-- Lipila mobile-money checkout that detects MTN, Airtel, or Zamtel from the customer's phone number, plus hosted card payments
+- Lipila mobile-money checkout that detects MTN, Airtel, or Zamtel from the customer's phone number
+- Daily email summaries of completed sales and products with no sales, sent at 00:05 Zambia time
 - Inventory management and revenue overview in the admin dashboard
 - Admin email alerts for new completed orders, low stock, and out-of-stock products via Gmail SMTP or Resend
 - Send a one-off summary email for products already at or below their stock thresholds
@@ -148,7 +149,7 @@ Notes:
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are required for live database-backed functionality.
 - `LIPILA_API_KEY` is required for checkout. Start with the sandbox dashboard and key; set `LIPILA_ENV=production` only with a live key.
 - `LIPILA_WEBHOOK_SECRET` verifies Lipila callback signatures. Configure the callback URL as `https://<your-domain>/api/payments/lipila/webhook` in Lipila.
-- `NEXT_PUBLIC_SITE_URL` must be the canonical site origin so Lipila can return customers from hosted card checkout.
+- `NEXT_PUBLIC_SITE_URL` must be the canonical site origin so Lipila can send payment callbacks.
 - `NEXT_PUBLIC_*` variables are intentionally not preferred here because the app reads runtime environment variables on the server instead of inlining them during build.
 - Without Supabase configuration, the app falls back to sample/mock catalog data so the UI can still render.
 - Email alerts are optional; payment processing does not depend on email delivery.
@@ -199,9 +200,11 @@ LIPILA_ENV=sandbox
 NEXT_PUBLIC_SITE_URL=https://your-store.example
 ```
 
-Use a Lipila sandbox account and test key first. The production API uses the live key and `LIPILA_ENV=production`. The code sends mobile-money collections for the entered Zambian phone number and lets Lipila detect the mobile network; card checkout redirects to Lipila's hosted card page. Configure the callback URL and enable transaction callbacks in the Lipila merchant dashboard. Keep API keys and webhook secrets out of browser code and version control.
+Use a Lipila sandbox account and test key first. The production API uses the live key and `LIPILA_ENV=production`. Checkout sends a mobile-money collection for the entered Zambian phone number and lets Lipila detect the network. The callback URL is built from `NEXT_PUBLIC_SITE_URL`; enable transaction callbacks in the Lipila merchant dashboard. Keep API keys and webhook secrets out of browser code and version control.
 
 The checkout checks the `lipila_checkout_ready()` database function before creating any payment. It stays disabled until the payment migrations are applied, including the stock-reservation triggers and mobile-money payment method.
+
+The daily sales email summarizes the previous complete calendar day in Zambia time. GitHub Actions runs it at 00:05 and calls the protected `/api/cron/daily-sales-summary` endpoint. Configure `DAILY_SALES_CRON_SECRET` in both Azure App Service and GitHub Actions secrets. The workflow sends completed order totals, sold products, and products with no sales.
 
 ## Database schema
 
